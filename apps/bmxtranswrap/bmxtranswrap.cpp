@@ -488,6 +488,7 @@ static void usage(const char *cmd)
     fprintf(stderr, "    --dm-file <fwork> <name>       Parse and set descriptive framework properties from text file <name>. <fwork> is 'as11' or 'dpp'\n");
     fprintf(stderr, "    --seg <name>                   Parse and set segmentation data from text file <name>\n");
     fprintf(stderr, "    --pass-dm                      Copy descriptive metadata from the input file. The metadata can be overidden by other options\n");
+    fprintf(stderr, "    --norm-pass-dm                 Same as --pass-dm, but also normalise strings to always have a null terminator. This is a workaround for products that fail to handle zero size string properties.\n");
     fprintf(stderr, "    --spec-id <id>                 Set the AS-11 specification identifier labels associated with <id>\n");
     fprintf(stderr, "                                   The <id> is one of the following:\n");
     fprintf(stderr, "                                       as11-x1 : AMWA AS-11 X1, delivery of finished UHD programs to Digital Production Partnership (DPP) broadcasters\n");
@@ -551,6 +552,7 @@ static void usage(const char *cmd)
     fprintf(stderr, "    --repeat-index          Repeat the index table segments in the footer partition\n");
     fprintf(stderr, "    --clip-wrap             Use clip wrapping for a single sound track\n");
     fprintf(stderr, "    --mp-track-num          Use the material package track number property to define a track order. By default the track number is set to 0\n");
+    fprintf(stderr, "    --aes-3                 Use AES-3 audio mapping\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  op1a/rdd9:\n");
     fprintf(stderr, "    --ard-zdf-hdf           Use the ARD ZDF HDF profile\n");
@@ -674,6 +676,7 @@ int main(int argc, const char** argv)
     ClipWriterType clip_type = CW_OP1A_CLIP_TYPE;
     ClipSubType clip_sub_type = NO_CLIP_SUB_TYPE;
     bool ard_zdf_hdf_profile = false;
+    bool aes3 = false;
     AS10Shim as10_shim = AS10_UNKNOWN_SHIM;
     const char *output_name = "";
     Timecode start_timecode;
@@ -1641,6 +1644,11 @@ int main(int argc, const char** argv)
         {
             pass_dm = true;
         }
+        else if (strcmp(argv[cmdln_index], "--norm-pass-dm") == 0)
+        {
+            pass_dm = true;
+            as11_helper.SetNormaliseStrings(true);
+        }
         else if (strcmp(argv[cmdln_index], "--spec-id") == 0)
         {
             if (cmdln_index + 1 >= argc)
@@ -1897,6 +1905,10 @@ int main(int argc, const char** argv)
         else if (strcmp(argv[cmdln_index], "--mp-track-num") == 0)
         {
             mp_track_num = true;
+        }
+        else if (strcmp(argv[cmdln_index], "--aes-3") == 0)
+        {
+            aes3 = true;
         }
         else if (strcmp(argv[cmdln_index], "--ard-zdf-hdf") == 0)
         {
@@ -2837,6 +2849,8 @@ int main(int argc, const char** argv)
             } else {
                 if (mp_track_num)
                     flavour |= OP1A_MP_TRACK_NUMBER_FLAVOUR;
+                if (aes3)
+                    flavour |= OP1A_AES_FLAVOUR;
                 if (min_part)
                     flavour |= OP1A_MIN_PARTITIONS_FLAVOUR;
                 else if (body_part)
@@ -4091,4 +4105,3 @@ int main(int argc, const char** argv)
 
     return cmd_result;
 }
-
