@@ -12,7 +12,7 @@ scm_header=$1
 dist_scm_header=$2
 def_name=$3
 
-echo "#define BMX_SCM_VERSION \"snap1708-1-g337fa00\"" > $scm_header
+echo "#define BMX_SCM_VERSION \"snap1701\"" > $scm_header
 
 #
 #
