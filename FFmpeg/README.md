@@ -18,3 +18,9 @@ git apply *.patch
 
 # Build
 You can and `--enable-libcbmx` to build with BMX to build FFmpeg.
+
+--extra-cflags="-I/path/to/extra/includes"
+
+add_cflags -I`pwd`/../include/bmx-0.1
+add_cflags -I`pwd`/../include/libMXF++-1.0
+add_cflags -I`pwd`/../include/libMXF-1.0
