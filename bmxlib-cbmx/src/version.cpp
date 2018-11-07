@@ -2,6 +2,7 @@
 #include <cbmx/version.h>
 #include <bmx/Version.h>
 #include <cstdlib>
+#include <cstring>
 
 void get_bmx_library_name(char* library_name) {
     std::string data = bmx::get_bmx_library_name();
