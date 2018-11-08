@@ -40,7 +40,7 @@ RUN \
 
 RUN \
   cd bmxlib-cbmx && \
-  mkdir build && \
+  mkdir -p build && \
   cd build && \
   cmake .. && \
   make
@@ -48,9 +48,7 @@ RUN \
 RUN \
   git clone https://github.com/ffmpeg/ffmpeg && \
   cd ffmpeg && \
-  git apply ../FFmpeg/0001-start-to-integrate-BMX-library.patch && \
-  mkdir build && \
-  cd build && \
+  git apply ../FFmpeg-patches/0001-start-to-integrate-BMX-library.patch && \
   ./configure --enable-libcbmx --extra-cflags="-I`pwd`/../bmxlib-cbmx/include" && \
   make && \
   make install

@@ -28,3 +28,17 @@ config.status
 libtool
 stamp-h1
 bmx_scm_version.h
+apps/bmxparse/bmxparse
+apps/bmxtimecode
+apps/bmxtranswrap/bmxtranswrap
+apps/mxf2raw/mxf2raw
+apps/raw2bmx/raw2bmx
+ar-lib
+compile
+test-driver
+test/rdd6/test_rdd6_xml
+tools/h264dump
+tools/movdump
+tools/rdd36dump
+tools/vc2dump
+
