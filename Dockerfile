@@ -43,7 +43,8 @@ RUN \
   mkdir -p build && \
   cd build && \
   cmake .. && \
-  make
+  make && \
+  make install
 
 RUN \
   git clone https://github.com/ffmpeg/ffmpeg && \
