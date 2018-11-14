@@ -50,7 +50,7 @@ RUN \
   git clone https://github.com/ffmpeg/ffmpeg && \
   cd ffmpeg && \
   git apply ../FFmpeg-patches/0001-start-to-integrate-BMX-library.patch && \
-  ./configure --enable-libcbmx --extra-cflags="-I`pwd`/../bmxlib-cbmx/include" && \
+  ./configure --enable-libcbmx && \
   make && \
   make install
 
