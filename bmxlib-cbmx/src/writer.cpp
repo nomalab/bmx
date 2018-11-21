@@ -5,13 +5,24 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
+#include <vector>
+
+struct BmxWriter {
+    bmx::ClipWriter* clip;
+    std::vector<bmx::ClipWriterTrack*> tracks;
+};
 
 void* create_as02_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
     std::string output_name(filename);
     bmx::Rational frame_rate;
     bmx::DefaultMXFFileFactory file_factory;
 
-    return bmx::ClipWriter::OpenNewAS02Clip(output_name, true, frame_rate, &file_factory, false);
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewAS02Clip(output_name, true, frame_rate, &file_factory, false);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
 void* create_op1a_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
@@ -23,45 +34,115 @@ void* create_op1a_writer(const char* filename, int frame_rate_num, int frame_rat
     frame_rate.numerator = frame_rate_num;
     frame_rate.denominator = frame_rate_den;
 
-    return bmx::ClipWriter::OpenNewOP1AClip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    flavour |= OP1A_SINGLE_PASS_WRITE_FLAVOUR;
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewOP1AClip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
-void* create_rdd9_writer(const char* filename) {
+void* create_rdd9_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
     std::string output_name(filename);
     bmx::Rational frame_rate;
     bmx::DefaultMXFFileFactory file_factory;
     int flavour = 0;
 
-    return bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    frame_rate.numerator = frame_rate_num;
+    frame_rate.denominator = frame_rate_den;
+
+    flavour |= RDD9_SINGLE_PASS_WRITE_FLAVOUR;
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
-void* bmx_add_track(void* data_clip, EssenceType essence_type)
-{
-    bmx::ClipWriter* clip = (bmx::ClipWriter*)data_clip;
-    bmx::ClipWriterTrack* clipWriterTrack = clip->CreateTrack((bmx::EssenceType)essence_type, "video");
-    return clipWriterTrack;
+void* create_d10_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
+    std::string output_name(filename);
+    bmx::Rational frame_rate;
+    bmx::DefaultMXFFileFactory file_factory;
+    int flavour = 0;
+
+    frame_rate.numerator = frame_rate_num;
+    frame_rate.denominator = frame_rate_den;
+
+    flavour |= D10_SINGLE_PASS_WRITE_FLAVOUR;
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
-void bmx_set_quantization_bits(void* data_writer, int quantization_bits)
-{
-    bmx::ClipWriterTrack* clipWriterTrack = (bmx::ClipWriterTrack*)data_writer;
-    clipWriterTrack->SetQuantizationBits(quantization_bits);
+void* create_avid_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
+    std::string output_name(filename);
+    bmx::Rational frame_rate;
+    bmx::DefaultMXFFileFactory file_factory;
+    int flavour = 0;
+
+    frame_rate.numerator = frame_rate_num;
+    frame_rate.denominator = frame_rate_den;
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
-void bmx_channel_count(void* data_writer, int channel_count)
-{
-    bmx::ClipWriterTrack* clipWriterTrack = (bmx::ClipWriterTrack*)data_writer;
-    clipWriterTrack->SetChannelCount(channel_count);
+void* create_wave_writer(const char* filename, int frame_rate_num, int frame_rate_den) {
+    std::string output_name(filename);
+    bmx::Rational frame_rate;
+    bmx::DefaultMXFFileFactory file_factory;
+    int flavour = 0;
+
+    frame_rate.numerator = frame_rate_num;
+    frame_rate.denominator = frame_rate_den;
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* w = new BmxWriter();
+    w->clip = clip;
+    w->tracks = tracks;
+    return (void*)w;
 }
 
-bool bmx_init(void* data_clip)
+void bmx_add_track(void* bmx_writer, EssenceType essence_type)
 {
-    bmx::ClipWriter* clip = (bmx::ClipWriter*)data_clip;
+    BmxWriter* w = (BmxWriter*)bmx_writer;
+    bmx::ClipWriterTrack* clipWriterTrack = w->clip->CreateTrack((bmx::EssenceType)essence_type, "");
+    w->tracks.push_back(clipWriterTrack);
+}
+
+void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits)
+{
+    BmxWriter* w = (BmxWriter*)bmx_writer;
+    w->tracks[track_index]->SetQuantizationBits(quantization_bits);
+}
+
+void bmx_channel_count(void* bmx_writer, int track_index, int channel_count)
+{
+    BmxWriter* w = (BmxWriter*)bmx_writer;
+    w->tracks[track_index]->SetChannelCount(channel_count);
+}
+
+bool bmx_init(void* bmx_writer)
+{
+    BmxWriter* w = (BmxWriter*)bmx_writer;
     try {
-        bmx::OP1AFile *op1a_clip = clip->GetOP1AClip();
+        bmx::OP1AFile *op1a_clip = w->clip->GetOP1AClip();
         op1a_clip->SetRepeatIndexTable(true);
-        clip->PrepareHeaderMetadata();
-        clip->PrepareWrite();
+        w->clip->PrepareHeaderMetadata();
+        w->clip->PrepareWrite();
     }
     catch (const std::exception& e) {
         std::cout << "BMX ERROR " << e.what() << std::endl;
@@ -74,11 +155,11 @@ bool bmx_init(void* data_clip)
     return true;
 }
 
-bool bmx_uninit(void* data_clip)
+bool bmx_finish(void* bmx_writer)
 {
-    bmx::ClipWriter* clip = (bmx::ClipWriter*)data_clip;
+    BmxWriter* w = (BmxWriter*)bmx_writer;
     try {
-        clip->CompleteWrite();
+        w->clip->CompleteWrite();
     }
     catch (const std::exception& e) {
         std::cout << "ERROR " << e.what() << std::endl;
@@ -91,15 +172,29 @@ bool bmx_uninit(void* data_clip)
     return true;
 }
 
-bool bmx_write_sample(void* data_track, const unsigned char *data, int size, int num_samples)
+bool bmx_uninit(void* bmx_writer)
 {
-    bmx::ClipWriterTrack* clipWriterTrack = (bmx::ClipWriterTrack*)data_track;
-    std::cout << "*** " << num_samples << " samples for " << size << " bytes" << std::endl;
+    BmxWriter* w = (BmxWriter*)bmx_writer;
     try {
-        clipWriterTrack->WriteSamples(
-            data,
-            size,
-            num_samples);
+        delete w->clip;
+    }
+    catch (const std::exception& e) {
+        std::cout << "ERROR " << e.what() << std::endl;
+        return false;
+    }
+    catch (...) {
+        std::cout << "ERROR !" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool bmx_write_sample(void* bmx_writer, int track_index, const unsigned char *data, int size, int num_samples)
+{
+    BmxWriter* w = (BmxWriter*)bmx_writer;
+    try {
+        assert(track_index < w->tracks.size());
+        w->tracks[track_index]->WriteSamples(data, size, num_samples);
     }
     catch (const std::exception& e) {
         std::cout << "BMX ERROR " << e.what() << std::endl;

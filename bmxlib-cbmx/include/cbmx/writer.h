@@ -10,16 +10,21 @@ extern "C" {
 
 void* create_as02_writer(const char* filename, int frame_rate_num, int frame_rate_den);
 void* create_op1a_writer(const char* filename, int frame_rate_num, int frame_rate_den);
+void* create_rdd9_writer(const char* filename, int frame_rate_num, int frame_rate_den);
+void* create_d10_writer(const char* filename, int frame_rate_num, int frame_rate_den);
+void* create_avid_writer(const char* filename, int frame_rate_num, int frame_rate_den);
+void* create_wave_writer(const char* filename, int frame_rate_num, int frame_rate_den);
 
-void* bmx_add_track(void* clip, EssenceType essence_type);
+void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 
-void bmx_set_quantization_bits(void* data_writer, int quantization_bits);
-void bmx_channel_count(void* data_writer, int channel_count);
+void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
+void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
 
-bool bmx_init(void* clip);
-bool bmx_uninit(void* clip);
+bool bmx_init(void* bmx_writer);
+bool bmx_finish(void* bmx_writer);
+bool bmx_uninit(void* bmx_writer);
 
-bool bmx_write_sample(void* data_track, const unsigned char *data, int size, int num_samples);
+bool bmx_write_sample(void* bmx_writer, int track_index, const unsigned char *data, int size, int num_samples);
 
 #ifdef __cplusplus
 }
