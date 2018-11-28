@@ -49,7 +49,8 @@ RUN \
 RUN \
   git clone https://github.com/ffmpeg/ffmpeg && \
   cd ffmpeg && \
-  git apply ../FFmpeg-patches/0001-start-to-integrate-BMX-library.patch && \
+  git apply ../FFmpeg-patches/0001_declare_BMX_wrapper.patch && \
+  git apply ../FFmpeg-patches/0002_add_bmx_files.patch && \
   ./configure --enable-libcbmx && \
   make && \
   make install
