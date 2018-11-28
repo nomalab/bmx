@@ -1,5 +1,5 @@
 diff --git a/configure b/configure
-index 00b5d9795e..6054f07764 100755
+index 00b5d9795e..b25e5963ef 100755
 --- a/configure
 +++ b/configure
 @@ -222,6 +222,7 @@ External library support:
@@ -26,16 +26,7 @@ index 00b5d9795e..6054f07764 100755
      libcaca
      libcelt
      libcodec2
-@@ -3047,6 +3050,8 @@ trace_headers_bsf_select="cbs"
- vp9_metadata_bsf_select="cbs_vp9"
- 
- # external libraries
-+#bmx_muxer_deps="bmx"
-+
- aac_at_decoder_deps="audiotoolbox"
- aac_at_decoder_select="aac_adtstoasc_bsf"
- ac3_at_decoder_deps="audiotoolbox"
-@@ -3164,6 +3169,9 @@ asf_muxer_select="riffenc"
+@@ -3164,6 +3167,9 @@ asf_muxer_select="riffenc"
  asf_stream_muxer_select="asf_muxer"
  avi_demuxer_select="iso_media riffdec exif"
  avi_muxer_select="riffenc"
@@ -45,9 +36,9 @@ index 00b5d9795e..6054f07764 100755
  caf_demuxer_select="iso_media riffdec"
  caf_muxer_select="iso_media"
  dash_muxer_select="mp4_muxer"
-@@ -6025,6 +6033,14 @@ if ! disabled pthreads && ! enabled w32threads && ! enabled os2threads; then
-     fi
- fi
+@@ -6049,6 +6055,14 @@ for func in $COMPLEX_FUNCS; do
+     eval check_complexfunc $func \${${func}_args:-1}
+ done
  
 +add_cflags -I/usr/local/include/bmx-0.1
 +add_cflags -I/usr/local/include/libMXF++-1.0
@@ -57,10 +48,10 @@ index 00b5d9795e..6054f07764 100755
 +add_ldflags -lMXF++-1.0
 +add_ldflags -lMXF-1.0
 +
- enabled  zlib && { check_pkg_config zlib zlib "zlib.h" zlibVersion ||
-                    check_lib zlib   zlib.h      zlibVersion    -lz; }
- enabled bzlib && check_lib bzlib bzlib.h BZ2_bzlibVersion    -lbz2
-@@ -6066,6 +6082,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883
+ # these are off by default, so fail if requested and not available
+ enabled cuda_sdk          && require cuda_sdk cuda.h cuCtxCreate -lcuda
+ enabled chromaprint       && require chromaprint chromaprint.h chromaprint_get_version -lchromaprint
+@@ -6066,6 +6080,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883
  enabled libass            && require_pkg_config libass libass ass/ass.h ass_library_init
  enabled libbluray         && require_pkg_config libbluray libbluray libbluray/bluray.h bd_open
  enabled libbs2b           && require_pkg_config libbs2b libbs2b bs2b.h bs2b_open
