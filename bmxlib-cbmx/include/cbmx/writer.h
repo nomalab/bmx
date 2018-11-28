@@ -8,23 +8,49 @@
 extern "C" {
 #endif
 
-void* create_as02_writer(const char* filename, int frame_rate_num, int frame_rate_den);
-void* create_op1a_writer(const char* filename, int frame_rate_num, int frame_rate_den);
-void* create_rdd9_writer(const char* filename, int frame_rate_num, int frame_rate_den);
-void* create_d10_writer(const char* filename, int frame_rate_num, int frame_rate_den);
-void* create_avid_writer(const char* filename, int frame_rate_num, int frame_rate_den);
-void* create_wave_writer(const char* filename, int frame_rate_num, int frame_rate_den);
+typedef enum {
+    CLIP_TYPE_ASO2 = 0,
+    CLIP_TYPE_OP1A,
+    CLIP_TYPE_AVID,
+    CLIP_TYPE_D10,
+    CLIP_TYPE_RDD9,
+    CLIP_TYPE_WAVE,
+    CLIP_TYPE_NB
+} ClipType;
+
+typedef enum {
+    AS10_UNKNOWN_SHIM = 0,
+    AS10_HIGH_HD_2014,
+    AS10_CNN_HD_2012,
+    AS10_NRK_HD_2012,
+    AS10_JVC_HD_35_VBR_2012,
+    AS10_JVC_HD_25_CBR_2012,
+} ShimName;
+
+struct MxfConfig
+{
+    ClipType clip_type;
+    ShimName shim_name;
+    int frame_rate_num;
+    int frame_rate_den;
+    float part;
+    int aes3;
+    int kag_512;
+    int single_pass;
+} MxfConfig;
+
+void* create_writer(const char* filename, struct MxfConfig* flavour);
 
 void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
 
-bool bmx_init(void* bmx_writer);
-bool bmx_finish(void* bmx_writer);
-bool bmx_uninit(void* bmx_writer);
+int bmx_init(void* bmx_writer);
+int bmx_finish(void* bmx_writer);
+int bmx_uninit(void* bmx_writer);
 
-bool bmx_write_sample(void* bmx_writer, int track_index, const unsigned char *data, int size, int num_samples);
+int bmx_write_sample(void* bmx_writer, int track_index, const unsigned char *data, int size, int num_samples);
 
 #ifdef __cplusplus
 }

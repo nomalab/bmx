@@ -12,11 +12,8 @@ void get_bmx_library_name(char* library_name);
 void get_bmx_version_string(char* version);
 void get_bmx_scm_version_string(char* scm_version);
 void get_bmx_build_string(char* build);
-// Timestamp get_bmx_build_timestamp();
 
 void get_bmx_company_name(char* company_name);
-// UUID get_bmx_product_uid();
-// mxfProductVersion get_bmx_mxf_product_version();
 void get_bmx_mxf_version_string(char* mxf_version);
 
 #ifdef __cplusplus
