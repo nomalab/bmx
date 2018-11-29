@@ -33,13 +33,13 @@ struct MxfConfig
     ShimName shim_name;
     int frame_rate_num;
     int frame_rate_den;
-    float part;
+    int partition_size_in_frames;
     int aes3;
     int kag_512;
     int single_pass;
 } MxfConfig;
 
-void* create_writer(const char* filename, struct MxfConfig* flavour);
+void* create_writer(const char* filename, struct MxfConfig* config);
 
 void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 

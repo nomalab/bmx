@@ -60,6 +60,11 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     // OP1A_AS11_FLAVOUR
 
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewOP1AClip(flavour, file_factory.OpenNew(output_name), frame_rate);
+    bmx::OP1AFile *op1a_clip = clip->GetOP1AClip();
+    if(config->partition_size_in_frames > 0) {
+        op1a_clip->SetPartitionInterval(config->partition_size_in_frames);
+    }
+
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
     writer->clip = clip;

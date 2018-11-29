@@ -84,3 +84,38 @@ index 498077e1de..3a1782fc91 100644
  extern AVInputFormat  ff_bfstm_demuxer;
  extern AVInputFormat  ff_brstm_demuxer;
  extern AVInputFormat  ff_boa_demuxer;
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index 6e4c5f8fa3..89e1af42a0 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -24,7 +24,7 @@ static int bmx_writer_init(AVFormatContext *s)
+     config.shim_name = bmx->shim_name;
+     config.frame_rate_num = st->time_base.den;
+     config.frame_rate_den = st->time_base.num;
+-    config.part = bmx->part;
++    config.partition_size_in_frames = bmx->partition_size_in_frames;
+     config.aes3 = bmx->aes3;
+     config.kag_512 = bmx->kag_512;
+     config.single_pass = bmx->single_pass;
+@@ -124,7 +124,7 @@ static const AVOption options[] = {
+     { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+-    { "part", "Video essence partition interval in frames", OFFSET(part), AV_OPT_TYPE_DURATION, {.i64 = -1 }, -1, INT_MAX, E},
++    { "part", "Video essence partition interval in frames", OFFSET(partition_size_in_frames), AV_OPT_TYPE_INT, {.i64 = -1 }, -1, INT_MAX, E},
+     { NULL },
+ };
+ 
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+index 7beeed5067..41d06ffd48 100644
+--- a/libavformat/bmxenc.h
++++ b/libavformat/bmxenc.h
+@@ -9,7 +9,7 @@ typedef struct BMXContext {
+     const AVClass* class;  /* Class for private options. */
+     ClipType clip_type;
+     ShimName shim_name;
+-    float part;
++    int partition_size_in_frames;
+     int aes3;
+     int kag_512;
+     int single_pass;
