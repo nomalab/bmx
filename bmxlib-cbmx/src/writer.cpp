@@ -1,6 +1,7 @@
 
 #include <cbmx/writer.h>
 #include <cbmx/essence_type.h>
+#include <bmx/apps/AppUtils.h>
 #include <bmx/clip_writer/ClipWriter.h>
 #include <bmx/wave/WaveFileIO.h>
 #include <cstdlib>
@@ -34,6 +35,7 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     bmx::Rational frame_rate;
     bmx::DefaultMXFFileFactory file_factory;
     int flavour = OP1A_DEFAULT_FLAVOUR;
+    bmx::Timecode start_timecode;
 
     frame_rate.numerator = config->frame_rate_num;
     frame_rate.denominator = config->frame_rate_den;
@@ -64,6 +66,12 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     if(config->partition_size_in_frames > 0) {
         op1a_clip->SetPartitionInterval(config->partition_size_in_frames);
     }
+
+    start_timecode.Init(frame_rate, false);
+    if (config->timecode) {
+        parse_timecode(config->timecode, frame_rate, &start_timecode);
+    }
+    clip->SetStartTimecode(start_timecode);
 
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();

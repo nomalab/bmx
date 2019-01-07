@@ -37,6 +37,7 @@ struct MxfConfig
     int aes3;
     int kag_512;
     int single_pass;
+    const char *timecode;
 } MxfConfig;
 
 void* create_writer(const char* filename, struct MxfConfig* config);
