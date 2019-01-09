@@ -31,6 +31,7 @@ struct MxfConfig
 {
     ClipType clip_type;
     ShimName shim_name;
+    int ard_zdf_hdf;
     int frame_rate_num;
     int frame_rate_den;
     int partition_size_in_frames;
@@ -46,6 +47,7 @@ void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
+void bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);
 
 int bmx_init(void* bmx_writer);
 int bmx_finish(void* bmx_writer);
