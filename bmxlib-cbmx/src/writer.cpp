@@ -216,6 +216,12 @@ void bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, Essence
     }
 }
 
+void bmx_afd(void* bmx_writer, int track_index, int afd)
+{
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+    writer->tracks[track_index]->SetAFD(afd);
+}
+
 int bmx_init(void* bmx_writer)
 {
     BmxWriter* writer = (BmxWriter*)bmx_writer;

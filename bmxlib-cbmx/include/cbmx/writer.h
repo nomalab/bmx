@@ -48,6 +48,7 @@ void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
 void bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);
+void bmx_afd(void* bmx_writer, int track_index, int afd);
 
 int bmx_init(void* bmx_writer);
 int bmx_finish(void* bmx_writer);
