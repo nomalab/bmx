@@ -1,7 +1,10 @@
 
 #include <cbmx/writer.h>
 #include <cbmx/essence_type.h>
+#include <bmx/apps/AppUtils.h>
 #include <bmx/clip_writer/ClipWriter.h>
+#include <bmx/mxf_op1a/OP1ATrack.h>
+#include <bmx/mxf_op1a/OP1AAVCITrack.h>
 #include <bmx/wave/WaveFileIO.h>
 #include <cstdlib>
 #include <string>
@@ -34,6 +37,7 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     bmx::Rational frame_rate;
     bmx::DefaultMXFFileFactory file_factory;
     int flavour = OP1A_DEFAULT_FLAVOUR;
+    bmx::Timecode start_timecode;
 
     frame_rate.numerator = config->frame_rate_num;
     frame_rate.denominator = config->frame_rate_den;
@@ -47,6 +51,9 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     if(config->aes3) {
         flavour |= OP1A_AES_FLAVOUR;
     }
+    if(config->ard_zdf_hdf) {
+        flavour |= OP1A_ARD_ZDF_HDF_PROFILE_FLAVOUR;
+    }
 
     // remaining Op1a options
     // OP1A_MIN_PARTITIONS_FLAVOUR
@@ -55,7 +62,6 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     // OP1A_SINGLE_PASS_MD5_WRITE_FLAVOUR
     // OP1A_NO_BODY_PART_UPDATE_FLAVOUR
     // OP1A_BODY_PARTITIONS_FLAVOUR
-    // OP1A_ARD_ZDF_HDF_PROFILE_FLAVOUR
     // OP1A_MP_TRACK_NUMBER_FLAVOUR
     // OP1A_AS11_FLAVOUR
 
@@ -64,6 +70,12 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     if(config->partition_size_in_frames > 0) {
         op1a_clip->SetPartitionInterval(config->partition_size_in_frames);
     }
+
+    start_timecode.Init(frame_rate, false);
+    if (config->timecode) {
+        parse_timecode(config->timecode, frame_rate, &start_timecode);
+    }
+    clip->SetStartTimecode(start_timecode);
 
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
@@ -178,6 +190,37 @@ void bmx_channel_count(void* bmx_writer, int track_index, int channel_count)
 {
     BmxWriter* writer = (BmxWriter*)bmx_writer;
     writer->tracks[track_index]->SetChannelCount(channel_count);
+}
+
+int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type)
+{
+    unsigned char avci_header_data[AVCI_HEADER_SIZE];
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+    bmx::Rational frame_rate = writer->clip->GetFrameRate();
+    switch(essence_type) {
+        case AVCI200_1080I:
+        case AVCI200_1080P:
+        case AVCI200_720P:
+        case AVCI100_1080I:
+        case AVCI100_1080P:
+        case AVCI100_720P:
+        case AVCI50_1080I:
+        case AVCI50_1080P:
+        case AVCI50_720P:
+            if (ps_avcihead && bmx::get_ps_avci_header_data((bmx::EssenceType)essence_type, frame_rate,
+                                                    avci_header_data, sizeof(avci_header_data)))
+            {
+                writer->tracks[track_index]->SetAVCIHeader(avci_header_data, sizeof(avci_header_data));
+                return 0;
+            }
+        default: return -1;
+    }
+}
+
+void bmx_afd(void* bmx_writer, int track_index, int afd)
+{
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+    writer->tracks[track_index]->SetAFD(afd);
 }
 
 int bmx_init(void* bmx_writer)

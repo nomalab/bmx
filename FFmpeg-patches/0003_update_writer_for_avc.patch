@@ -1,0 +1,84 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index 89e1af42a0..d0cad62521 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -22,12 +22,14 @@ static int bmx_writer_init(AVFormatContext *s)
+     struct MxfConfig config;
+     config.clip_type = bmx->clip_type;
+     config.shim_name = bmx->shim_name;
++    config.ard_zdf_hdf = bmx->ard_zdf_hdf;
+     config.frame_rate_num = st->time_base.den;
+     config.frame_rate_den = st->time_base.num;
+     config.partition_size_in_frames = bmx->partition_size_in_frames;
+     config.aes3 = bmx->aes3;
+     config.kag_512 = bmx->kag_512;
+     config.single_pass = bmx->single_pass;
++    config.timecode = bmx->timecode;
+ 
+     bmx->internal_data = create_writer(s->url, &config);
+     return !(bmx->internal_data != NULL);
+@@ -69,6 +72,9 @@ static int bmx_write_header(AVFormatContext *s)
+             default:
+                 break;
+         }
++        if (bmx->video_essence != 0 && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
++            essence_type = bmx->video_essence;
++        }
+ 
+         av_log(s, AV_LOG_INFO, "Add stream %d\n", i);
+         if(essence_type != UNKNOWN_ESSENCE_TYPE) {
+@@ -78,6 +84,12 @@ static int bmx_write_header(AVFormatContext *s)
+                 bmx_set_quantization_bits(bmx->internal_data, i, st->codecpar->bits_per_coded_sample);
+                 bmx_channel_count(bmx->internal_data, i, st->codecpar->channels);
+             }
++            if(st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
++                bmx_afd(bmx->internal_data, i, bmx->afd);
++                if (bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type) == 0) {
++                    av_log(s, AV_LOG_INFO, "Set AVCI header for stream %d\n", i);
++                }
++            }
+         }
+     }
+ 
+@@ -121,6 +133,19 @@ static const AVOption options[] = {
+     { "nrk_hd_2012", "Use Shim AS10 NRK HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_NRK_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "jvc_hd_35_vbr_2012", "Use Shim AS10 JVC HD 35 VBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_35_VBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "jvc_hd_25_cbr_2012", "Use Shim AS10 JVC HD 25 CBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_25_CBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "ard_zdf_hdf", "Use ARD ZDF HDF profile", OFFSET(ard_zdf_hdf), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
++    { "tc", "Set start timecode <hh:mm:ss:ff>", OFFSET(timecode), AV_OPT_TYPE_STRING, {.str="0"}, CHAR_MIN, CHAR_MAX, E},
++    { "ps_avcihead", "Add Panasonic AVC-Intra sequence header data for Panasonic-compatible files that don't include the header data", OFFSET(ps_avcihead), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
++    { "video_essence", "Set output video essence type", OFFSET(video_essence), AV_OPT_TYPE_INT, {.i64 = UNKNOWN_ESSENCE_TYPE }, 0, UINT_MAX, E, "video_essence"},
++    { "avci200_1080i", "AVC Intra 200 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci200_1080p", "AVC Intra 200 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_1080i", "AVC Intra 100 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_1080p", "AVC Intra 100 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_720p", "AVC Intra 100 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_720P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_1080i", "AVC Intra 50 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_1080p", "AVC Intra 50 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_720p", "AVC Intra 50 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_720P }, 0, UINT_MAX, E, "video_essence"},
++    { "afd", "Set Active Format Descriptor", OFFSET(afd), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+index 41d06ffd48..f367d2c489 100644
+--- a/libavformat/bmxenc.h
++++ b/libavformat/bmxenc.h
+@@ -9,12 +9,17 @@ typedef struct BMXContext {
+     const AVClass* class;  /* Class for private options. */
+     ClipType clip_type;
+     ShimName shim_name;
++    int ard_zdf_hdf;
+     int partition_size_in_frames;
+     int aes3;
++    int ps_avcihead;
+     int kag_512;
+     int single_pass;
+     void* internal_data;
+     void** writers;
++    const char* timecode;
++    int afd;
++    EssenceType video_essence;
+ } BMXContext;
+ 
+ int bmx_create_bmx_wrapper(AVFormatContext *s);
