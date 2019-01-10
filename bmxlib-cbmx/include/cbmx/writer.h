@@ -38,7 +38,7 @@ struct MxfConfig
     int aes3;
     int kag_512;
     int single_pass;
-    const char *timecode;
+    const char* timecode;
 } MxfConfig;
 
 void* create_writer(const char* filename, struct MxfConfig* config);
@@ -47,7 +47,7 @@ void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
-void bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);
+int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);
 void bmx_afd(void* bmx_writer, int track_index, int afd);
 
 int bmx_init(void* bmx_writer);

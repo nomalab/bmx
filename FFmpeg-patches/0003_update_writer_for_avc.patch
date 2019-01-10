@@ -1,5 +1,5 @@
 diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
-index 89e1af42a0..093d277952 100644
+index 89e1af42a0..96b654d5a3 100644
 --- a/libavformat/bmxenc.c
 +++ b/libavformat/bmxenc.c
 @@ -22,12 +22,14 @@ static int bmx_writer_init(AVFormatContext *s)
@@ -21,57 +21,47 @@ index 89e1af42a0..093d277952 100644
              default:
                  break;
          }
-+        if (bmx->essence_video != 0 && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-+            essence_type = bmx->essence_video;
++        if (bmx->video_essence != 0 && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
++            essence_type = bmx->video_essence;
 +        }
  
          av_log(s, AV_LOG_INFO, "Add stream %d\n", i);
          if(essence_type != UNKNOWN_ESSENCE_TYPE) {
-@@ -78,6 +84,22 @@ static int bmx_write_header(AVFormatContext *s)
+@@ -78,6 +84,12 @@ static int bmx_write_header(AVFormatContext *s)
                  bmx_set_quantization_bits(bmx->internal_data, i, st->codecpar->bits_per_coded_sample);
                  bmx_channel_count(bmx->internal_data, i, st->codecpar->channels);
              }
 +            if(st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
 +                bmx_afd(bmx->internal_data, i, bmx->afd);
-+                switch(essence_type) {
-+                    case AVCI200_1080I:
-+                    case AVCI200_1080P:
-+                    case AVCI200_720P:
-+                    case AVCI100_1080I:
-+                    case AVCI100_1080P:
-+                    case AVCI100_720P:
-+                    case AVCI50_1080I:
-+                    case AVCI50_1080P:
-+                    case AVCI50_720P:
-+                        bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type);
-+                        break;
++                if (bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type) != -1 ) {
++                    av_log(s, AV_LOG_INFO, "Set AVCI header for stream %d\n", i);
 +                }
 +            }
          }
      }
  
-@@ -121,6 +143,19 @@ static const AVOption options[] = {
+@@ -121,6 +133,19 @@ static const AVOption options[] = {
      { "nrk_hd_2012", "Use Shim AS10 NRK HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_NRK_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
      { "jvc_hd_35_vbr_2012", "Use Shim AS10 JVC HD 35 VBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_35_VBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
      { "jvc_hd_25_cbr_2012", "Use Shim AS10 JVC HD 25 CBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_25_CBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
 +    { "ard_zdf_hdf", "Use ARD ZDF HDF profile", OFFSET(ard_zdf_hdf), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
 +    { "tc", "Set start timecode <hh:mm:ss:ff>", OFFSET(timecode), AV_OPT_TYPE_STRING, {.str="0"}, CHAR_MIN, CHAR_MAX, E},
 +    { "ps_avcihead", "Add Panasonic AVC-Intra sequence header data for Panasonic-compatible files that don't include the header data", OFFSET(ps_avcihead), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
-+    { "essence_video", "Set output essence video type", OFFSET(essence_video), AV_OPT_TYPE_INT, {.i64 = UNKNOWN_ESSENCE_TYPE }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci200_1080i", "AVC Intra 200 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080I }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci200_1080p", "AVC Intra 200 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080P }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci100_1080i", "AVC Intra 100 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080I }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci100_1080p", "AVC Intra 100 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080P }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci100_720p", "AVC Intra 100 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_720P }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci50_1080i", "AVC Intra 50 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080I }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci50_1080p", "AVC Intra 50 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080P }, 0, UINT_MAX, E, "essence_video"},
-+    { "avci50_720p", "AVC Intra 50 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_720P }, 0, UINT_MAX, E, "essence_video"},
++    { "video_essence", "Set output video essence type", OFFSET(video_essence), AV_OPT_TYPE_INT, {.i64 = UNKNOWN_ESSENCE_TYPE }, 0, UINT_MAX, E, "video_essence"},
++    { "avci200_1080i", "AVC Intra 200 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci200_1080p", "AVC Intra 200 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI200_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_1080i", "AVC Intra 100 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_1080p", "AVC Intra 100 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci100_720p", "AVC Intra 100 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI100_720P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_1080i", "AVC Intra 50 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080I }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_1080p", "AVC Intra 50 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080P }, 0, UINT_MAX, E, "video_essence"},
++    { "avci50_720p", "AVC Intra 50 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_720P }, 0, UINT_MAX, E, "video_essence"},
 +    { "afd", "Set Active Format Descriptor", OFFSET(afd), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
      { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
      { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
      { "single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
 diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
-index 41d06ffd48..04363a941e 100644
+index 41d06ffd48..f367d2c489 100644
 --- a/libavformat/bmxenc.h
 +++ b/libavformat/bmxenc.h
 @@ -9,12 +9,17 @@ typedef struct BMXContext {
@@ -88,7 +78,7 @@ index 41d06ffd48..04363a941e 100644
      void** writers;
 +    const char* timecode;
 +    int afd;
-+    EssenceType essence_video;
++    EssenceType video_essence;
  } BMXContext;
  
  int bmx_create_bmx_wrapper(AVFormatContext *s);
