@@ -211,7 +211,6 @@ int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceT
                                                     avci_header_data, sizeof(avci_header_data)))
             {
                 writer->tracks[track_index]->SetAVCIHeader(avci_header_data, sizeof(avci_header_data));
-                std::cout << "AVCI header :: " << std::endl;
                 return 0;
             }
         default: return -1;
