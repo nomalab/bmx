@@ -1,5 +1,5 @@
 diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
-index 89e1af42a0..96b654d5a3 100644
+index 89e1af42a0..d0cad62521 100644
 --- a/libavformat/bmxenc.c
 +++ b/libavformat/bmxenc.c
 @@ -22,12 +22,14 @@ static int bmx_writer_init(AVFormatContext *s)
@@ -33,7 +33,7 @@ index 89e1af42a0..96b654d5a3 100644
              }
 +            if(st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
 +                bmx_afd(bmx->internal_data, i, bmx->afd);
-+                if (bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type) != -1 ) {
++                if (bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type) == 0) {
 +                    av_log(s, AV_LOG_INFO, "Set AVCI header for stream %d\n", i);
 +                }
 +            }
