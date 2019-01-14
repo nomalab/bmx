@@ -14,6 +14,7 @@ typedef enum {
     CLIP_TYPE_AVID,
     CLIP_TYPE_D10,
     CLIP_TYPE_RDD9,
+    CLIP_TYPE_AS10,
     CLIP_TYPE_WAVE,
     CLIP_TYPE_NB
 } ClipType;
@@ -39,7 +40,10 @@ struct MxfConfig
     int kag_512;
     int single_pass;
     const char* timecode;
+    int loose_checks;
 } MxfConfig;
+
+const char* get_as10_shim_name(ShimName shim);
 
 void* create_writer(const char* filename, struct MxfConfig* config);
 
