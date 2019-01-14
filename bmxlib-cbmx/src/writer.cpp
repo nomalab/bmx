@@ -110,7 +110,6 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     // remaining Op1a options
     // OP1A_MIN_PARTITIONS_FLAVOUR
     // OP1A_377_2004_FLAVOUR
-    // OP1A_SINGLE_PASS_WRITE_FLAVOUR
     // OP1A_SINGLE_PASS_MD5_WRITE_FLAVOUR
     // OP1A_NO_BODY_PART_UPDATE_FLAVOUR
     // OP1A_BODY_PARTITIONS_FLAVOUR
@@ -149,6 +148,13 @@ void* create_rdd9_writer(const char* filename, struct MxfConfig* config) {
         flavour |= RDD9_SINGLE_PASS_WRITE_FLAVOUR;
     }
 
+    // remaining rdd9 options
+    // RDD9_SMPTE_377_2004_FLAVOUR
+    // RDD9_SINGLE_PASS_MD5_WRITE_FLAVOUR
+    // RDD9_NO_BODY_PART_UPDATE_FLAVOUR
+    // RDD9_ARD_ZDF_HDF_PROFILE_FLAVOUR
+    // RDD9_AS11_FLAVOUR
+
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
@@ -169,6 +175,10 @@ void* create_d10_writer(const char* filename, struct MxfConfig* config) {
     if(config->single_pass) {
         flavour |= D10_SINGLE_PASS_WRITE_FLAVOUR;
     }
+
+    // remaining d10 options
+    // D10_SINGLE_PASS_MD5_WRITE_FLAVOUR
+    // D10_AS11_FLAVOUR
 
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewD10Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
     std::vector<bmx::ClipWriterTrack*> tracks;
