@@ -1,0 +1,25 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index ca55cfdec4..6f62dd337a 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -67,6 +67,7 @@ static int bmx_write_header(AVFormatContext *s)
+             case AV_CODEC_ID_PRORES:
+                 break;
+             case AV_CODEC_ID_PCM_S24LE:
++            case AV_CODEC_ID_PCM_S16LE:
+                 essence_type = WAVE_PCM;
+                 break;
+             default:
+@@ -103,7 +104,11 @@ static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
+     int num_samples = 1;
+ 
+     if(s->streams[pkt->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+-        num_samples = pkt->size / (s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample / 8);
++        if(s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample != 0) {
++            num_samples = pkt->size / (s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample / 8);
++        } else {
++            num_samples = pkt->size / (av_get_bits_per_sample(s->streams[pkt->stream_index]->codecpar->codec_id) / 8);
++        }
+     }
+ 
+     bmx_write_sample(bmx->internal_data, pkt->stream_index, pkt->data, pkt->size, num_samples);
