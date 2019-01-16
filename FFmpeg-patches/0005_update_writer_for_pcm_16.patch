@@ -1,5 +1,5 @@
 diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
-index ca55cfdec4..6f62dd337a 100644
+index ca55cfdec4..cdc5ad07fd 100644
 --- a/libavformat/bmxenc.c
 +++ b/libavformat/bmxenc.c
 @@ -67,6 +67,7 @@ static int bmx_write_header(AVFormatContext *s)
@@ -10,16 +10,16 @@ index ca55cfdec4..6f62dd337a 100644
                  essence_type = WAVE_PCM;
                  break;
              default:
-@@ -103,7 +104,11 @@ static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
+@@ -101,9 +102,14 @@ static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
+ {
+     BMXContext* bmx = (BMXContext*)s->priv_data;
      int num_samples = 1;
++    AVCodecParameters* codecpar = s->streams[pkt->stream_index]->codecpar;
  
-     if(s->streams[pkt->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+-    if(s->streams[pkt->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
 -        num_samples = pkt->size / (s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample / 8);
-+        if(s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample != 0) {
-+            num_samples = pkt->size / (s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample / 8);
++    if(codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
++        if(codecpar->bits_per_raw_sample != 0) {
++            num_samples = pkt->size / (codecpar->bits_per_raw_sample / 8);
 +        } else {
-+            num_samples = pkt->size / (av_get_bits_per_sample(s->streams[pkt->stream_index]->codecpar->codec_id) / 8);
-+        }
-     }
- 
-     bmx_write_sample(bmx->internal_data, pkt->stream_index, pkt->data, pkt->size, num_samples);
++            num_samples = pkt->size / (av_get_bits_per_sample(codecpar->codec_id) / 8);
