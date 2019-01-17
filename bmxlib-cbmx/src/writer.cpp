@@ -2,10 +2,12 @@
 #include <cbmx/writer.h>
 #include <cbmx/essence_type.h>
 #include <bmx/apps/AppUtils.h>
+#include <bmx/as10/AS10RDD9Validator.h>
 #include <bmx/clip_writer/ClipWriter.h>
 #include <bmx/mxf_op1a/OP1ATrack.h>
 #include <bmx/mxf_op1a/OP1AAVCITrack.h>
 #include <bmx/wave/WaveFileIO.h>
+#include <bmx/Utils.h>
 #include <cstdlib>
 #include <string>
 #include <iostream>
@@ -16,6 +18,29 @@ struct BmxWriter {
     std::vector<bmx::ClipWriterTrack*> tracks;
 };
 
+typedef struct {
+    ShimName shim;
+    const char *name;
+} ShimNamesMap;
+
+static const ShimNamesMap SHIM_NAMES_MAP[] =
+    {
+        {AS10_HIGH_HD_2014,         "HIGH_HD_2014"},
+        {AS10_CNN_HD_2012,          "CNN_HD_2012"},
+        {AS10_NRK_HD_2012,          "NRK_HD_2012"},
+        {AS10_JVC_HD_35_VBR_2012,   "JVC_HD_35_VBR_2012"},
+        {AS10_JVC_HD_25_CBR_2012,   "JVC_HD_25_CBR_2012"},
+    };
+
+const char* get_as10_shim_name(ShimName shim) {
+    size_t i;
+    for (i = 0; i < BMX_ARRAY_SIZE(SHIM_NAMES_MAP); i++) {
+        if (shim == SHIM_NAMES_MAP[i].shim)
+            return SHIM_NAMES_MAP[i].name;
+    }
+    return NULL;
+}
+
 void* create_as02_writer(const char* filename, struct MxfConfig* config) {
     std::string output_name(filename);
     bmx::Rational frame_rate;
@@ -25,6 +50,33 @@ void* create_as02_writer(const char* filename, struct MxfConfig* config) {
     frame_rate.denominator = config->frame_rate_den;
 
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewAS02Clip(output_name, true, frame_rate, &file_factory, false);
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* writer = new BmxWriter();
+    writer->clip = clip;
+    writer->tracks = tracks;
+    return (void*)writer;
+}
+
+void* create_as10_writer(const char* filename, struct MxfConfig* config) {
+    std::string output_name(filename);
+    bmx::Rational frame_rate;
+    bmx::DefaultMXFFileFactory file_factory;
+
+    frame_rate.numerator = config->frame_rate_num;
+    frame_rate.denominator = config->frame_rate_den;
+
+    if (get_as10_shim_name(config->shim_name) == NULL) {
+        std::cout << "ERROR : UNABLE TO GET SHIM NAME" << std::endl;
+        return NULL;
+    }
+
+    bmx::AS10Shim as10_shim = bmx::get_as10_shim(get_as10_shim_name(config->shim_name));
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(RDD9_AS10_FLAVOUR, file_factory.OpenNew(output_name), frame_rate);
+
+    bmx::RDD9File *rdd9_clip = clip->GetRDD9Clip();
+    rdd9_clip->SetValidator(new bmx::AS10RDD9Validator(as10_shim, config->loose_checks));
+
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
     writer->clip = clip;
@@ -58,7 +110,6 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     // remaining Op1a options
     // OP1A_MIN_PARTITIONS_FLAVOUR
     // OP1A_377_2004_FLAVOUR
-    // OP1A_SINGLE_PASS_WRITE_FLAVOUR
     // OP1A_SINGLE_PASS_MD5_WRITE_FLAVOUR
     // OP1A_NO_BODY_PART_UPDATE_FLAVOUR
     // OP1A_BODY_PARTITIONS_FLAVOUR
@@ -97,6 +148,13 @@ void* create_rdd9_writer(const char* filename, struct MxfConfig* config) {
         flavour |= RDD9_SINGLE_PASS_WRITE_FLAVOUR;
     }
 
+    // remaining rdd9 options
+    // RDD9_SMPTE_377_2004_FLAVOUR
+    // RDD9_SINGLE_PASS_MD5_WRITE_FLAVOUR
+    // RDD9_NO_BODY_PART_UPDATE_FLAVOUR
+    // RDD9_ARD_ZDF_HDF_PROFILE_FLAVOUR
+    // RDD9_AS11_FLAVOUR
+
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewRDD9Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
@@ -117,6 +175,10 @@ void* create_d10_writer(const char* filename, struct MxfConfig* config) {
     if(config->single_pass) {
         flavour |= D10_SINGLE_PASS_WRITE_FLAVOUR;
     }
+
+    // remaining d10 options
+    // D10_SINGLE_PASS_MD5_WRITE_FLAVOUR
+    // D10_AS11_FLAVOUR
 
     bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewD10Clip(flavour, file_factory.OpenNew(output_name), frame_rate);
     std::vector<bmx::ClipWriterTrack*> tracks;
@@ -167,6 +229,8 @@ void* create_writer(const char* filename, struct MxfConfig* config)
             return create_d10_writer(filename, config);
         case CLIP_TYPE_RDD9:
             return create_rdd9_writer(filename, config);
+        case CLIP_TYPE_AS10:
+            return create_as10_writer(filename, config);
         case CLIP_TYPE_WAVE:
             return create_wave_writer(filename, config);
         default: return NULL;
@@ -227,8 +291,10 @@ int bmx_init(void* bmx_writer)
 {
     BmxWriter* writer = (BmxWriter*)bmx_writer;
     try {
-        bmx::OP1AFile *op1a_clip = writer->clip->GetOP1AClip();
-        op1a_clip->SetRepeatIndexTable(true);
+        if (writer->clip->GetType() == bmx::CW_OP1A_CLIP_TYPE) {
+            bmx::OP1AFile *op1a_clip = writer->clip->GetOP1AClip();
+            op1a_clip->SetRepeatIndexTable(true);
+        }
         writer->clip->PrepareHeaderMetadata();
         writer->clip->PrepareWrite();
     }

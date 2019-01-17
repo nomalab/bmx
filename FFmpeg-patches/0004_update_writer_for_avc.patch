@@ -1,0 +1,50 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index cf99a80337..ca55cfdec4 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -30,6 +30,7 @@ static int bmx_writer_init(AVFormatContext *s)
+     config.kag_512 = bmx->kag_512;
+     config.single_pass = bmx->single_pass;
+     config.timecode = bmx->timecode;
++    config.loose_checks = bmx->loose_checks;
+ 
+     bmx->internal_data = create_writer(s->url, &config);
+     return !(bmx->internal_data != NULL);
+@@ -125,6 +126,7 @@ static const AVOption options[] = {
+     { "avid", "Wrap an Avid MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_AVID }, 0, UINT_MAX, E, "clip_type"},
+     { "d10", "Wrap an D10 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_D10 }, 0, UINT_MAX, E, "clip_type"},
+     { "rdd9", "Wrap an RDD9 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_RDD9 }, 0, UINT_MAX, E, "clip_type"},
++    { "as10", "Wrap an AS10 RDD9 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_AS10 }, 0, UINT_MAX, E, "clip_type"},
+     { "wave", "Wrap an WAVE MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_WAVE }, 0, UINT_MAX, E, "clip_type"},
+     { "shim_name", "Select shim name", OFFSET(shim_name), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "high_hd_2014", "Use Shim AS10 High HD 2014", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_HIGH_HD_2014 }, 0, UINT_MAX, E, "shim_name_type"},
+@@ -132,6 +134,7 @@ static const AVOption options[] = {
+     { "nrk_hd_2012", "Use Shim AS10 NRK HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_NRK_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "jvc_hd_35_vbr_2012", "Use Shim AS10 JVC HD 35 VBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_35_VBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "jvc_hd_25_cbr_2012", "Use Shim AS10 JVC HD 25 CBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_25_CBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "loose_checks", "Don't stop processing on detected compliancy violations in AS10", OFFSET(loose_checks), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
+     { "ard_zdf_hdf", "Use ARD ZDF HDF profile", OFFSET(ard_zdf_hdf), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
+     { "tc", "Set start timecode <hh:mm:ss:ff>", OFFSET(timecode), AV_OPT_TYPE_STRING, {.str="0"}, CHAR_MIN, CHAR_MAX, E},
+     { "ps_avcihead", "Add Panasonic AVC-Intra sequence header data for Panasonic-compatible files that don't include the header data", OFFSET(ps_avcihead), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
+@@ -144,6 +147,9 @@ static const AVOption options[] = {
+     { "avci50_1080i", "AVC Intra 50 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080I }, 0, UINT_MAX, E, "video_essence"},
+     { "avci50_1080p", "AVC Intra 50 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080P }, 0, UINT_MAX, E, "video_essence"},
+     { "avci50_720p", "AVC Intra 50 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_720P }, 0, UINT_MAX, E, "video_essence"},
++    { "d10_30", "D10 30Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_30 }, 0, UINT_MAX, E, "video_essence"},
++    { "d10_40", "D10 40Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_40 }, 0, UINT_MAX, E, "video_essence"},
++    { "d10_50", "D10 50Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_50 }, 0, UINT_MAX, E, "video_essence"},
+     { "afd", "Set Active Format Descriptor", OFFSET(afd), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+index f367d2c489..98a2ace823 100644
+--- a/libavformat/bmxenc.h
++++ b/libavformat/bmxenc.h
+@@ -20,6 +20,7 @@ typedef struct BMXContext {
+     const char* timecode;
+     int afd;
+     EssenceType video_essence;
++    int loose_checks;
+ } BMXContext;
+ 
+ int bmx_create_bmx_wrapper(AVFormatContext *s);
