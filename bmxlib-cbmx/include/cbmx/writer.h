@@ -49,6 +49,7 @@ void* create_writer(const char* filename, struct MxfConfig* config);
 
 void bmx_add_track(void* bmx_writer, EssenceType essence_type);
 
+void bmx_set_timecode(void* bmx_writer, struct MxfConfig* config);
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits);
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
 int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);

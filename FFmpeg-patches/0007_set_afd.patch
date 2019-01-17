@@ -1,0 +1,24 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index cdc5ad07fd..266a1d0be0 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -86,7 +86,9 @@ static int bmx_write_header(AVFormatContext *s)
+                 bmx_channel_count(bmx->internal_data, i, st->codecpar->channels);
+             }
+             if(st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+-                bmx_afd(bmx->internal_data, i, bmx->afd);
++                if (bmx->afd > 0) {
++                    bmx_afd(bmx->internal_data, i, bmx->afd);
++                }
+                 if (bmx_avci_header(bmx->internal_data, i, bmx->ps_avcihead, essence_type) == 0) {
+                     av_log(s, AV_LOG_INFO, "Set AVCI header for stream %d\n", i);
+                 }
+@@ -156,7 +158,7 @@ static const AVOption options[] = {
+     { "d10_30", "D10 30Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_30 }, 0, UINT_MAX, E, "video_essence"},
+     { "d10_40", "D10 40Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_40 }, 0, UINT_MAX, E, "video_essence"},
+     { "d10_50", "D10 50Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_50 }, 0, UINT_MAX, E, "video_essence"},
+-    { "afd", "Set Active Format Descriptor", OFFSET(afd), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
++    { "afd", "Set Active Format Descriptor", OFFSET(afd), AV_OPT_TYPE_INT, {.i64 = -1 }, -1, INT_MAX, E},
+     { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},

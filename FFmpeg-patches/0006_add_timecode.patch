@@ -1,0 +1,12 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index cdc5ad07fd..1298f2b446 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -33,6 +33,7 @@ static int bmx_writer_init(AVFormatContext *s)
+     config.loose_checks = bmx->loose_checks;
+ 
+     bmx->internal_data = create_writer(s->url, &config);
++    bmx_set_timecode(bmx->internal_data, &config);
+     return !(bmx->internal_data != NULL);
+ }
+ 
