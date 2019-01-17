@@ -89,7 +89,6 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     bmx::Rational frame_rate;
     bmx::DefaultMXFFileFactory file_factory;
     int flavour = OP1A_DEFAULT_FLAVOUR;
-    bmx::Timecode start_timecode;
 
     frame_rate.numerator = config->frame_rate_num;
     frame_rate.denominator = config->frame_rate_den;
@@ -121,12 +120,6 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     if(config->partition_size_in_frames > 0) {
         op1a_clip->SetPartitionInterval(config->partition_size_in_frames);
     }
-
-    start_timecode.Init(frame_rate, false);
-    if (config->timecode) {
-        parse_timecode(config->timecode, frame_rate, &start_timecode);
-    }
-    clip->SetStartTimecode(start_timecode);
 
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
@@ -242,6 +235,21 @@ void bmx_add_track(void* bmx_writer, EssenceType essence_type)
     BmxWriter* writer = (BmxWriter*)bmx_writer;
     bmx::ClipWriterTrack* clipWriterTrack = writer->clip->CreateTrack((bmx::EssenceType)essence_type, "");
     writer->tracks.push_back(clipWriterTrack);
+}
+
+void bmx_set_timecode(void* bmx_writer, struct MxfConfig* config) {
+    bmx::Timecode start_timecode;
+    bmx::Rational frame_rate;
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+
+    frame_rate.numerator = config->frame_rate_num;
+    frame_rate.denominator = config->frame_rate_den;
+    start_timecode.Init(frame_rate, false); //non drop frame
+
+    if (config->timecode) {
+        parse_timecode(config->timecode, frame_rate, &start_timecode);
+    }
+    writer->clip->SetStartTimecode(start_timecode);
 }
 
 void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantization_bits)
