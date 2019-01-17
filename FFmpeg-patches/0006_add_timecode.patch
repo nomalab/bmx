@@ -9,3 +9,4 @@ index cdc5ad07fd..1298f2b446 100644
 +    bmx_set_timecode(bmx->internal_data, &config);
      return !(bmx->internal_data != NULL);
  }
+ 
