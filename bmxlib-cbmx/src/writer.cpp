@@ -237,6 +237,15 @@ void bmx_add_track(void* bmx_writer, EssenceType essence_type)
     writer->tracks.push_back(clipWriterTrack);
 }
 
+void bmx_set_aspect_ratio(void* bmx_writer, int track_index, int display_aspect_ratio_num, int display_aspect_ratio_den)
+{
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+    bmx::Rational aspect_ratio;
+    aspect_ratio.numerator = display_aspect_ratio_num;
+    aspect_ratio.denominator = display_aspect_ratio_den;
+    writer->tracks[track_index]->SetAspectRatio(aspect_ratio);
+}
+
 void bmx_set_timecode(void* bmx_writer, struct MxfConfig* config) {
     bmx::Timecode start_timecode;
     bmx::Rational frame_rate;

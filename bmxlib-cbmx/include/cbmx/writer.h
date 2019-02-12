@@ -54,6 +54,7 @@ void bmx_set_quantization_bits(void* bmx_writer, int track_index, int quantizati
 void bmx_channel_count(void* bmx_writer, int track_index, int channel_count);
 int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceType essence_type);
 void bmx_afd(void* bmx_writer, int track_index, int afd);
+void bmx_set_aspect_ratio(void* bmx_writer, int track_index, int display_aspect_ratio_num, int display_aspect_ratio_den);
 
 int bmx_init(void* bmx_writer);
 int bmx_finish(void* bmx_writer);
