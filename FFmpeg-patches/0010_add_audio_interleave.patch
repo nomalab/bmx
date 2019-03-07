@@ -1,5 +1,5 @@
 diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
-index 6c846ab079..3bd3260ed7 100644
+index 6c846ab079..7dcc864ee2 100644
 --- a/libavformat/bmxenc.c
 +++ b/libavformat/bmxenc.c
 @@ -5,6 +5,7 @@
@@ -43,7 +43,7 @@ index 6c846ab079..3bd3260ed7 100644
      return 0;
  }
  
-+static int mxf_interleave_get_packet(AVFormatContext *s, AVPacket *out, AVPacket *pkt, int flush)
++static int bmx_interleave_get_packet(AVFormatContext *s, AVPacket *out, AVPacket *pkt, int flush)
 +{
 +    int i, stream_count = 0;
 +
@@ -98,7 +98,7 @@ index 6c846ab079..3bd3260ed7 100644
 +    }
 +}
 +
-+static int mxf_compare_timestamps(AVFormatContext *s, AVPacket *next, AVPacket *pkt)
++static int bmx_compare_timestamps(AVFormatContext *s, AVPacket *next, AVPacket *pkt)
 +{
 +    BMXStreamContext *sc = s->streams[pkt->stream_index]->priv_data;
 +    BMXStreamContext *sc2 = s->streams[next->stream_index]->priv_data;
@@ -107,10 +107,10 @@ index 6c846ab079..3bd3260ed7 100644
 +        (next->dts == pkt->dts && sc->order < sc2->order);
 +}
 +
-+static int bmx_mxf_interleave(AVFormatContext *s, AVPacket *out, AVPacket *pkt, int flush)
++static int bmx_interleave(AVFormatContext *s, AVPacket *out, AVPacket *pkt, int flush)
 +{
 +    return ff_audio_rechunk_interleave(s, out, pkt, flush,
-+                               mxf_interleave_get_packet, mxf_compare_timestamps);
++                               bmx_interleave_get_packet, bmx_compare_timestamps);
 +}
 +
  static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
@@ -153,7 +153,7 @@ index 6c846ab079..3bd3260ed7 100644
 +    .init               = bmx_writer_init,
 +    .write_header       = bmx_write_header,
 +    .write_packet       = bmx_write_packet,
-+    .interleave_packet  = bmx_mxf_interleave,
++    .interleave_packet  = bmx_interleave,
 +    .write_trailer      = bmx_write_footer,
 +    .deinit             = bmx_writer_uninit,
 +    .priv_class         = &bmx_class,
