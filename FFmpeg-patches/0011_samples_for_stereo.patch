@@ -1,0 +1,26 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index 7dcc864ee2..4a74462de4 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -134,7 +134,8 @@ static int bmx_write_header(AVFormatContext *s)
+         if(essence_type != UNKNOWN_ESSENCE_TYPE) {
+             bmx_add_track(bmx->internal_data, essence_type);
+ 
+-            if(st->codecpar->codec_id == AV_CODEC_ID_PCM_S24LE) {
++            if(st->codecpar->codec_id == AV_CODEC_ID_PCM_S24LE
++            || st->codecpar->codec_id == AV_CODEC_ID_PCM_S16LE) {
+                 bmx_set_quantization_bits(bmx->internal_data, i, st->codecpar->bits_per_coded_sample);
+                 bmx_channel_count(bmx->internal_data, i, st->codecpar->channels);
+             }
+@@ -238,9 +239,9 @@ static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
+ 
+     if(codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+         if(codecpar->bits_per_raw_sample != 0) {
+-            num_samples = pkt->size / (codecpar->bits_per_raw_sample / 8);
++            num_samples = pkt->size / (codecpar->bits_per_raw_sample / 8 * codecpar->channels);
+         } else {
+-            num_samples = pkt->size / (av_get_bits_per_sample(codecpar->codec_id) / 8);
++            num_samples = pkt->size / (av_get_bits_per_sample(codecpar->codec_id) / 8 * codecpar->channels);
+         }
+     }
+ 
