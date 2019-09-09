@@ -49,7 +49,7 @@ index 00b5d9795e..b25e5963ef 100755
 +add_ldflags -lMXF-1.0
 +
  # these are off by default, so fail if requested and not available
- enabled cuda_sdk          && require cuda_sdk cuda.h cuCtxCreate -lcuda
+ enabled cuda_nvcc         && { check_nvcc cuda_nvcc || die "ERROR: failed checking for nvcc."; }
  enabled chromaprint       && require chromaprint chromaprint.h chromaprint_get_version -lchromaprint
 @@ -6066,6 +6080,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883
  enabled libass            && require_pkg_config libass libass ass/ass.h ass_library_init
