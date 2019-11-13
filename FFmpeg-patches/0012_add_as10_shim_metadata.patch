@@ -1,0 +1,14 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index 4a74462de4..da285c9cc9 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -154,6 +154,9 @@ static int bmx_write_header(AVFormatContext *s)
+     }
+ 
+     bmx_init(bmx->internal_data);
++    if (bmx->clip_type == CLIP_TYPE_AS10 && bmx->shim_name != 0) {
++        bmx_add_shim_metadata(bmx->internal_data, bmx->shim_name);
++    }
+ 
+     const MXFSamplesPerFrame *spf = NULL;
+     spf = ff_mxf_get_samples_per_frame(s, (AVRational){ s->streams[0]->time_base.num, s->streams[0]->time_base.den });

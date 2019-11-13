@@ -56,6 +56,8 @@ int bmx_avci_header(void* bmx_writer, int track_index, int ps_avcihead, EssenceT
 void bmx_afd(void* bmx_writer, int track_index, int afd);
 void bmx_set_aspect_ratio(void* bmx_writer, int track_index, int display_aspect_ratio_num, int display_aspect_ratio_den);
 
+void bmx_add_shim_metadata(void* bmx_writer, ShimName shim_name);
+
 int bmx_init(void* bmx_writer);
 int bmx_finish(void* bmx_writer);
 int bmx_uninit(void* bmx_writer);

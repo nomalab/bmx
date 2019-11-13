@@ -4,6 +4,7 @@
 #include <bmx/apps/AppUtils.h>
 #include <bmx/as10/AS10RDD9Validator.h>
 #include <bmx/clip_writer/ClipWriter.h>
+#include <bmx/apps/AS10Helper.h>
 #include <bmx/mxf_op1a/OP1ATrack.h>
 #include <bmx/mxf_op1a/OP1AAVCITrack.h>
 #include <bmx/wave/WaveFileIO.h>
@@ -228,6 +229,17 @@ void* create_writer(const char* filename, struct MxfConfig* config)
             return create_wave_writer(filename, config);
         default: return NULL;
     }
+}
+
+void bmx_add_shim_metadata(void* bmx_writer, ShimName shim_name)
+{
+    // For AS-10 only
+    bmx::AS10Helper as10_helper;
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+
+    as10_helper.SetFrameworkProperty("as10", "ShimName", get_as10_shim_name(shim_name));
+    as10_helper.AddMetadata(writer->clip);
+    as10_helper.Complete();
 }
 
 void bmx_add_track(void* bmx_writer, EssenceType essence_type)
