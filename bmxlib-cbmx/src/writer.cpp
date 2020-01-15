@@ -67,7 +67,7 @@ void* create_as10_writer(const char* filename, struct MxfConfig* config) {
     frame_rate.denominator = config->frame_rate_den;
 
     if (get_as10_shim_name(config->shim_name) == NULL) {
-        std::cout << "ERROR : UNABLE TO GET SHIM NAME" << std::endl;
+        std::cerr << "BMX AS-10 ERROR : UNABLE TO GET SHIM NAME" << std::endl;
         return NULL;
     }
 
@@ -328,11 +328,11 @@ int bmx_init(void* bmx_writer)
         writer->clip->PrepareWrite();
     }
     catch (const std::exception& e) {
-        std::cout << "BMX ERROR " << e.what() << std::endl;
+        std::cerr << "BMX EXCEPTION (init) " << e.what() << std::endl;
         return -1;
     }
     catch (...) {
-        std::cout << "BMX ERROR !" << std::endl;
+        std::cerr << "BMX ERROR (init) !" << std::endl;
         return -1;
     }
     return 0;
@@ -345,11 +345,11 @@ int bmx_finish(void* bmx_writer)
         writer->clip->CompleteWrite();
     }
     catch (const std::exception& e) {
-        std::cout << "ERROR " << e.what() << std::endl;
+        std::cerr << "BMX EXCEPTION (finish) " << e.what() << std::endl;
         return -1;
     }
     catch (...) {
-        std::cout << "ERROR !" << std::endl;
+        std::cerr << "BMX ERROR (finish) !" << std::endl;
         return -1;
     }
     return 0;
@@ -363,11 +363,11 @@ int bmx_uninit(void* bmx_writer)
         delete writer;
     }
     catch (const std::exception& e) {
-        std::cout << "ERROR " << e.what() << std::endl;
+        std::cerr << "BMX EXCEPTION (uninit) " << e.what() << std::endl;
         return -1;
     }
     catch (...) {
-        std::cout << "ERROR !" << std::endl;
+        std::cerr << "BMX ERROR (uninit) !" << std::endl;
         return -1;
     }
     return 0;
@@ -381,11 +381,11 @@ int bmx_write_sample(void* bmx_writer, int track_index, const unsigned char *dat
         writer->tracks[track_index]->WriteSamples(data, size, num_samples);
     }
     catch (const std::exception& e) {
-        std::cout << "BMX ERROR " << e.what() << std::endl;
+        std::cerr << "BMX EXCEPTION (write sample) " << e.what() << std::endl;
         return -1;
     }
     catch (...) {
-        std::cout << "BMX ERROR !" << std::endl;
+        std::cerr << "BMX ERROR (write sample) !" << std::endl;
         return -1;
     }
     return 0;
