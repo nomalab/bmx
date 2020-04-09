@@ -106,10 +106,12 @@ void* create_op1a_writer(const char* filename, struct MxfConfig* config) {
     if(config->ard_zdf_hdf) {
         flavour |= OP1A_ARD_ZDF_HDF_PROFILE_FLAVOUR;
     }
+    if(config->smpte_st377m2004) {
+        flavour |= OP1A_377_2004_FLAVOUR;
+    }
 
     // remaining Op1a options
     // OP1A_MIN_PARTITIONS_FLAVOUR
-    // OP1A_377_2004_FLAVOUR
     // OP1A_SINGLE_PASS_MD5_WRITE_FLAVOUR
     // OP1A_NO_BODY_PART_UPDATE_FLAVOUR
     // OP1A_BODY_PARTITIONS_FLAVOUR
@@ -141,9 +143,11 @@ void* create_rdd9_writer(const char* filename, struct MxfConfig* config) {
     if(config->single_pass) {
         flavour |= RDD9_SINGLE_PASS_WRITE_FLAVOUR;
     }
+    if(config->smpte_st377m2004) {
+        flavour |= RDD9_SMPTE_377_2004_FLAVOUR;
+    }
 
     // remaining rdd9 options
-    // RDD9_SMPTE_377_2004_FLAVOUR
     // RDD9_SINGLE_PASS_MD5_WRITE_FLAVOUR
     // RDD9_NO_BODY_PART_UPDATE_FLAVOUR
     // RDD9_ARD_ZDF_HDF_PROFILE_FLAVOUR
