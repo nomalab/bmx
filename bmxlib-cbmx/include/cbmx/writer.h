@@ -39,6 +39,7 @@ struct MxfConfig
     int aes3;
     int kag_512;
     int single_pass;
+    int smpte_st377m2004;
     const char* timecode;
     int loose_checks;
 } MxfConfig;
