@@ -51,6 +51,8 @@
 #include <bmx/mxf_op1a/OP1AVBIDataTrack.h>
 #include <bmx/mxf_op1a/OP1AVC2Track.h>
 #include <bmx/mxf_op1a/OP1ARDD36Track.h>
+#include <bmx/mxf_op1a/OP1AJPEG2000Track.h>
+#include <bmx/mxf_op1a/OP1ATimedTextTrack.h>
 #include <bmx/MXFUtils.h>
 #include <bmx/Utils.h>
 #include <bmx/BMXException.h>
@@ -120,6 +122,8 @@ static const OP1ASampleRateSupport OP1A_SAMPLE_RATE_SUPPORT[] =
     {RDD36_422_HQ,             {{-1, -1}, {0, 0}}},
     {RDD36_4444,               {{-1, -1}, {0, 0}}},
     {RDD36_4444_XQ,            {{-1, -1}, {0, 0}}},
+    {JPEG2000_CDCI,            {{-1, -1}, {0, 0}}},
+    {JPEG2000_RGBA,            {{-1, -1}, {0, 0}}},
     {VC2,                      {{-1, -1}, {0, 0}}},
     {VC3_1080P_1235,           {{-1, -1}, {0, 0}}},
     {VC3_1080P_1237,           {{-1, -1}, {0, 0}}},
@@ -138,6 +142,7 @@ static const OP1ASampleRateSupport OP1A_SAMPLE_RATE_SUPPORT[] =
     {WAVE_PCM,                 {{48000, 1}, {0, 0}}},
     {ANC_DATA,                 {{-1, -1}, {0, 0}}},
     {VBI_DATA,                 {{-1, -1}, {0, 0}}},
+    {TIMED_TEXT,               {{-1, -1}, {0, 0}}},
 };
 
 
@@ -224,6 +229,9 @@ OP1ATrack* OP1ATrack::Create(OP1AFile *file, uint32_t track_index, uint32_t trac
         case RDD36_4444:
         case RDD36_4444_XQ:
             return new OP1ARDD36Track(file, track_index, track_id, track_type_number, frame_rate, essence_type);
+        case JPEG2000_CDCI:
+        case JPEG2000_RGBA:
+            return new OP1AJPEG2000Track(file, track_index, track_id, track_type_number, frame_rate, essence_type);
         case VC2:
             return new OP1AVC2Track(file, track_index, track_id, track_type_number, frame_rate);
         case VC3_1080P_1235:
@@ -247,6 +255,8 @@ OP1ATrack* OP1ATrack::Create(OP1AFile *file, uint32_t track_index, uint32_t trac
             return new OP1AANCDataTrack(file, track_index, track_id, track_type_number, frame_rate, essence_type);
         case VBI_DATA:
             return new OP1AVBIDataTrack(file, track_index, track_id, track_type_number, frame_rate, essence_type);
+        case TIMED_TEXT:
+            return new OP1ATimedTextTrack(file, track_index, track_id, track_type_number, frame_rate, essence_type);
         default:
             BMX_ASSERT(false);
     }
@@ -258,8 +268,13 @@ OP1ATrack::OP1ATrack(OP1AFile *file, uint32_t track_index, uint32_t track_id, ui
                      mxfRational frame_rate, EssenceType essence_type)
 {
     mOP1AFile = file;
-    mCPManager = file->GetContentPackageManager();
-    mIndexTable = file->GetIndexTable();
+    if (essence_type == TIMED_TEXT) {
+        mCPManager = 0;
+        mIndexTable = 0;
+    } else {
+        mCPManager = file->GetContentPackageManager();
+        mIndexTable = file->GetIndexTable();
+    }
     mTrackIndex = track_index;
     mTrackId = track_id;
     mOutputTrackNumber = 0;
@@ -475,4 +490,3 @@ void OP1ATrack::CompleteEssenceKeyAndTrackNum(uint8_t track_count)
                                            mxf_get_essence_element_type(mTrackNumber),
                                            mTrackTypeNumber);
 }
-

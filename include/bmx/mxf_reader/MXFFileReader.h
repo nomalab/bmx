@@ -61,6 +61,7 @@ public:
     friend class IndexTableHelper;
     friend class EssenceChunkHelper;
     friend class MXFFileTrackReader;
+    friend class MXFTimedTextTrackReader;
     friend class MXFTextObject;
     friend class FrameMetadataReader;
     friend class EssenceReaderBuffer;
@@ -125,7 +126,6 @@ public:
     virtual int16_t GetMaxRollout(int64_t position, bool limit_to_available) const;
 
 public:
-    virtual bool HaveFixedLeadFillerOffset() const;
     virtual int64_t GetFixedLeadFillerOffset() const;
 
     uint16_t GetMXFVersion() const    { return mMXFVersion; }

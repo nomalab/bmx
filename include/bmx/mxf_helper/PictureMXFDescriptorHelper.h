@@ -77,6 +77,17 @@ public:
     void SetBlackRefLevel(uint32_t level);
     void SetWhiteRefLevel(uint32_t level);
     void SetColorRange(uint32_t range);
+    void SetComponentMaxRef(uint32_t ref);
+    void SetComponentMinRef(uint32_t ref);
+    void SetScanningDirection(uint8_t direction);
+    void SetMasteringDisplayPrimaries(mxfThreeColorPrimaries primaries);
+    void SetMasteringDisplayWhitePointChromaticity(mxfColorPrimary chroma);
+    void SetMasteringDisplayMaximumLuminance(uint32_t max_lum);
+    void SetMasteringDisplayMinimumLuminance(uint32_t min_lum);
+    void SetActiveWidth(uint32_t width);
+    void SetActiveHeight(uint32_t height);
+    void SetActiveXOffset(uint32_t offset);
+    void SetActiveYOffset(uint32_t offset);
 
     virtual mxfpp::FileDescriptor* CreateFileDescriptor(mxfpp::HeaderMetadata *header_metadata);
     virtual void UpdateFileDescriptor();
@@ -134,6 +145,17 @@ protected:
     BMX_OPT_PROP_DECL(uint32_t, mBlackRefLevel);
     BMX_OPT_PROP_DECL(uint32_t, mWhiteRefLevel);
     BMX_OPT_PROP_DECL(uint32_t, mColorRange);
+    BMX_OPT_PROP_DECL(uint32_t, mComponentMaxRef);
+    BMX_OPT_PROP_DECL(uint32_t, mComponentMinRef);
+    BMX_OPT_PROP_DECL(uint8_t, mScanningDirection);
+    BMX_OPT_PROP_DECL(mxfThreeColorPrimaries, mMasteringDisplayPrimaries);
+    BMX_OPT_PROP_DECL(mxfColorPrimary, mMasteringDisplayWhitePointChromaticity);
+    BMX_OPT_PROP_DECL(uint32_t, mMasteringDisplayMaximumLuminance);
+    BMX_OPT_PROP_DECL(uint32_t, mMasteringDisplayMinimumLuminance);
+    BMX_OPT_PROP_DECL(uint32_t, mActiveWidth);
+    BMX_OPT_PROP_DECL(uint32_t, mActiveHeight);
+    BMX_OPT_PROP_DECL(uint32_t, mActiveXOffset);
+    BMX_OPT_PROP_DECL(uint32_t, mActiveYOffset);
 };
 
 

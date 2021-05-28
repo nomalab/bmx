@@ -78,6 +78,7 @@ static const MCALabelEntry AS11_MCA_LABELS[] =
         {0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0d, 0x03, 0x02, 0x01, 0x05, 0x00, 0x00, 0x00, 0x00}},
     {AUDIO_CHANNEL_LABEL,               "chRs",       "Right Surround",
         {0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0d, 0x03, 0x02, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00}},
+    // NOTE: the label below is named "Visually Impaired-Narrative" in IMF, i.e. with a "-"
     {AUDIO_CHANNEL_LABEL,               "chVIN",      "Visually Impaired Narrative",
         {0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0d, 0x03, 0x02, 0x01, 0x0f, 0x00, 0x00, 0x00, 0x00}},
     {SOUNDFIELD_GROUP_LABEL,            "sg51",       "5.1",
@@ -133,7 +134,7 @@ void AS11WriterHelper::SetSpecificationId(AS11SpecificationId spec_id)
     {
         case AS11_X1_SPEC:
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_0);
-            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_1_WIP);
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_1);
             break;
         case AS11_X2_SPEC:
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_0);
@@ -147,11 +148,22 @@ void AS11WriterHelper::SetSpecificationId(AS11SpecificationId spec_id)
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_0);
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_6_WIP);
             break;
+        case AS11_X5_SPEC:
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_8_WIP);
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_13_WIP);
+            break;
+        case AS11_X6_SPEC:
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_12);
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_14);
+            break;
         case AS11_X7_SPEC:
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_7);
             break;
         case AS11_X8_SPEC:
             preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_9_WIP);
+            break;
+        case AS11_X9_SPEC:
+            preface->appendULArrayItem(&MXF_ITEM_K(Preface, SpecificationIdentifiers), AS11_BLOCKS_FF_9);
             break;
         case UNKNOWN_AS11_SPEC:
             break;

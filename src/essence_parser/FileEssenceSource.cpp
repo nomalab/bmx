@@ -34,6 +34,13 @@
 #endif
 
 #include <cerrno>
+#include <algorithm>
+#if !defined(_WIN32)
+#include <cstring>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include <bmx/essence_parser/FileEssenceSource.h>
 #include <bmx/Utils.h>
@@ -44,12 +51,16 @@ using namespace bmx;
 using namespace std;
 
 
+static const int MAX_FIFO_SIZE = 50000000; // 50MB
+
 
 FileEssenceSource::FileEssenceSource()
 {
     mFile = 0;
     mStartOffset = 0;
     mErrno = 0;
+    mIsFifo = false;
+    mIsFifoSeek = false;
 }
 
 FileEssenceSource::~FileEssenceSource()
@@ -80,6 +91,17 @@ bool FileEssenceSource::Open(const string &filename, int64_t start_offset)
         return false;
     }
 
+#if !defined(_WIN32)
+    // Keep this after the SeekStart above to disable buffering at that stage
+    // Support for named pipes is not currently supported on Windows OS
+    struct stat buf;
+    memset(&buf, 0, sizeof(buf));
+    int ret = stat(filename.c_str(), &buf);
+    if (ret == 0 && S_ISFIFO(buf.st_mode)) {
+        mIsFifo = true;
+    }
+#endif
+
     return true;
 }
 
@@ -88,9 +110,32 @@ uint32_t FileEssenceSource::Read(unsigned char *data, uint32_t size)
     BMX_ASSERT(mFile);
     mErrno = 0;
 
+    if (mIsFifoSeek && mFifoBuffer.size() > 0) {
+       size_t len = min((size_t)size, mFifoBuffer.size());
+       memcpy(data, &mFifoBuffer[0], len);
+       mFifoBuffer = std::vector<unsigned char>(mFifoBuffer.begin() + len, mFifoBuffer.end());
+
+       if (mFifoBuffer.size() > 0) {
+         return (uint32_t)len;
+       }
+
+       size -= len;
+       data += len;
+       size_t num_read = fread(data, 1, size, mFile);
+       if (num_read < size && ferror(mFile))
+          mErrno = errno;
+
+       return (uint32_t)(num_read + len);
+    }
+
     size_t num_read = fread(data, 1, size, mFile);
-    if (num_read < size && ferror(mFile))
+    if (num_read < size && ferror(mFile)) {
         mErrno = errno;
+    } else {
+        if (mIsFifo && !mIsFifoSeek && num_read > 0 && mFifoBuffer.size() < MAX_FIFO_SIZE) {
+            mFifoBuffer.insert(mFifoBuffer.end(), data, data + num_read);
+        }
+    }
 
     return (uint32_t)num_read;
 }
@@ -99,6 +144,11 @@ bool FileEssenceSource::SeekStart()
 {
     BMX_ASSERT(mFile);
     mErrno = 0;
+
+    if (mIsFifo) {
+       mIsFifoSeek = true;
+       return true;
+    }
 
     int res;
 #if defined(_WIN32)
@@ -116,6 +166,24 @@ bool FileEssenceSource::Skip(int64_t offset)
 {
     BMX_ASSERT(mFile);
     mErrno = 0;
+
+    while (mIsFifo &&
+           !mIsFifoSeek &&
+           mErrno == 0 &&
+           offset > 0 &&
+           mFifoBuffer.size() < MAX_FIFO_SIZE)
+    {
+        unsigned char buffer[8192];
+        uint32_t next_read = sizeof(buffer);
+        if (next_read > offset) {
+            next_read = (uint32_t)offset;
+        }
+        uint32_t num_read = Read(buffer, next_read);
+        offset -= num_read;
+        if (num_read < next_read) {
+            break;
+        }
+    }
 
     int res;
 #if defined(_WIN32)

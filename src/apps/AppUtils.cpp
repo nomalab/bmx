@@ -48,6 +48,9 @@
 #include <sys/time.h>
 #endif
 
+#include <mxf/mxf.h>
+#include <mxf/mxf_avid.h>
+
 #include <bmx/apps/AppUtils.h>
 #include <bmx/clip_writer/ClipWriter.h>
 #include <bmx/writer_helper/VC2WriterHelper.h>
@@ -444,7 +447,7 @@ bool bmx::parse_avci_header(const char *format_str, const char *filename, const 
         size_t index;
         const char *format_str_ptr = format_str;
         while (format_str_ptr) {
-            if (sscanf(format_str_ptr, "%" PRIszt, &index) != 1 || index > BMX_ARRAY_SIZE(AVCI_HEADER_FORMAT_INFO))
+            if (sscanf(format_str_ptr, "%" PRIszt, &index) != 1 || index >= BMX_ARRAY_SIZE(AVCI_HEADER_FORMAT_INFO))
                 return false;
             input.formats.push_back(AVCI_HEADER_FORMAT_INFO[index].format);
 
@@ -505,8 +508,12 @@ bool bmx::parse_umid(const char *umid_str, UMID *umid)
     return parse_hex_string(umid_str, (unsigned char*)&umid->octet0, 32);
 }
 
-bool bmx::parse_uuid(const char *uuid_str, UUID *uuid)
+bool bmx::parse_uuid(const char *uuid_str_in, UUID *uuid)
 {
+    const char *uuid_str = uuid_str_in;
+    if (strncmp(uuid_str, "urn:uuid:", 9) == 0)
+        uuid_str = &uuid_str[9];
+
     return parse_hex_string(uuid_str, (unsigned char*)&uuid->octet0, 16);
 }
 
@@ -775,10 +782,7 @@ bool bmx::parse_mxf_auid(const char *mxf_auid_str, UL *mxf_auid)
 
     // MXF AUID type has UL as-is and UUID half-swapped
     UUID uuid;
-    const char *uuid_str = mxf_auid_str;
-    if (strncmp(mxf_auid_str, "urn:uuid:", 9) == 0)
-        uuid_str = &mxf_auid_str[9];
-    if (!parse_uuid(uuid_str, &uuid))
+    if (!parse_uuid(mxf_auid_str, &uuid))
         return false;
     mxf_swap_uid(mxf_auid, (const mxfUID*)&uuid);
 
@@ -969,6 +973,52 @@ bool bmx::parse_vc2_mode(const char *mode_str, int *vc2_mode_flags)
     return true;
 }
 
+bool bmx::parse_avid_umid_type(const char *str, AvidUMIDType *value)
+{
+    static const char* enum_strings[] =
+    {
+        "uuid", "aafsdk", "old-aafsdk"
+    };
+
+    size_t i;
+    for (i = 0; i < BMX_ARRAY_SIZE(enum_strings); i++) {
+        if (strcmp(str, enum_strings[i]) == 0) {
+            *value = (AvidUMIDType)i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int bmx::parse_three_color_primaries(const char *str, mxfThreeColorPrimaries *three_color_primaries)
+{
+    unsigned int value[6];
+    if (sscanf(str, "%d,%d,%d,%d,%d,%d", &value[0], &value[1], &value[2], &value[3], &value[4], &value[5]) != 6)
+        return false;
+
+    three_color_primaries->primaries[0].x = value[0];
+    three_color_primaries->primaries[0].y = value[1];
+    three_color_primaries->primaries[1].x = value[2];
+    three_color_primaries->primaries[1].y = value[3];
+    three_color_primaries->primaries[2].x = value[4];
+    three_color_primaries->primaries[2].y = value[5];
+
+    return true;
+}
+
+int bmx::parse_color_primary(const char *str, mxfColorPrimary *color_primary)
+{
+    unsigned int value[2];
+    if (sscanf(str, "%d,%d", &value[0], &value[1]) != 2)
+        return false;
+
+    color_primary->x = value[0];
+    color_primary->y = value[1];
+
+    return true;
+}
+
 
 string bmx::create_mxf_track_filename(const char *prefix, uint32_t track_number, MXFDataDefEnum data_def)
 {
@@ -988,6 +1038,23 @@ string bmx::create_mxf_track_filename(const char *prefix, uint32_t track_number,
 
     string filename = prefix;
     return filename.append(buffer);
+}
+
+
+void bmx::set_avid_umid_type(AvidUMIDType type)
+{
+    switch (type)
+    {
+        case UUID_UMID_TYPE:
+            mxf_generate_aafsdk_umid = mxf_default_generate_umid;
+            break;
+        case AAFSDK_UMID_TYPE:
+            mxf_generate_aafsdk_umid = mxf_default_generate_aafsdk_umid;
+            break;
+        case OLD_AAFSDK_UMID_TYPE:
+            mxf_generate_aafsdk_umid = mxf_default_generate_old_aafsdk_umid;
+            break;
+    }
 }
 
 

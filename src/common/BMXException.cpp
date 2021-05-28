@@ -35,6 +35,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cerrno>
 
 #include <bmx/BMXException.h>
 #include <bmx/Utils.h>
@@ -77,3 +78,40 @@ const char* BMXException::what() const throw()
     return mMessage.c_str();
 }
 
+
+BMXIOException::BMXIOException()
+: BMXException()
+{
+    mErrno = errno;
+}
+
+BMXIOException::BMXIOException(const char *format, ...)
+: BMXException()
+{
+    mErrno = errno;
+
+    char message[1024];
+
+    va_list varg;
+    va_start(varg, format);
+    bmx_vsnprintf(message, sizeof(message), format, varg);
+    va_end(varg);
+
+    mMessage = message;
+}
+
+BMXIOException::BMXIOException(const std::string &message)
+: BMXException()
+{
+    mErrno = errno;
+    mMessage = message;
+}
+
+BMXIOException::~BMXIOException() throw()
+{
+}
+
+string BMXIOException::GetStrError() const
+{
+    return bmx_strerror(mErrno);
+}
