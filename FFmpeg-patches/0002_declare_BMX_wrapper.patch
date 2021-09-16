@@ -26,14 +26,14 @@ index 00b5d9795e..b25e5963ef 100755
      libcaca
      libcelt
      libcodec2
-@@ -3164,6 +3167,9 @@ asf_muxer_select="riffenc"
- asf_stream_muxer_select="asf_muxer"
- avi_demuxer_select="iso_media riffdec exif"
+@@ -3164,6 +3167,9 @@ asf_stream_muxer_select="asf_muxer"
+ av1_demuxer_select="av1_frame_merge_bsf av1_parser"
+ avi_demuxer_select="riffdec exif"
  avi_muxer_select="riffenc"
 +cbmx_muxer_select="bmx_muxer"
 +cbmx_muxer_deps="libcbmx"
 +bmx_muxer_deps="libcbmx"
- caf_demuxer_select="iso_media riffdec"
+ caf_demuxer_select="iso_media"
  caf_muxer_select="iso_media"
  dash_muxer_select="mp4_muxer"
 @@ -6049,6 +6055,14 @@ for func in $COMPLEX_FUNCS; do
@@ -49,8 +49,8 @@ index 00b5d9795e..b25e5963ef 100755
 +add_ldflags -lMXF-1.0
 +
  # these are off by default, so fail if requested and not available
+ enabled avisynth          && require_headers "avisynth/avisynth_c.h"
  enabled cuda_nvcc         && { check_nvcc cuda_nvcc || die "ERROR: failed checking for nvcc."; }
- enabled chromaprint       && require chromaprint chromaprint.h chromaprint_get_version -lchromaprint
 @@ -6066,6 +6080,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883
  enabled libass            && require_pkg_config libass libass ass/ass.h ass_library_init
  enabled libbluray         && require_pkg_config libbluray libbluray libbluray/bluray.h bd_open

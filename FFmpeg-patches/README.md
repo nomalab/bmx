@@ -8,7 +8,7 @@ git clone https://github.com/ffmpeg/ffmpeg
 ```
 
 If master doesn't work to apply these patches, the last valid commit is :
-01994c93db43e50c01349203a76c0b7111d1d2f3
+caaf4633117f77a545975dac18e85b8fcdbc9ce7
 
 # Apply patches
 
