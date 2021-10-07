@@ -1,0 +1,6 @@
+[submodule "bmxlib-libmxfpp"]
+	path = bmxlib-libmxfpp
+	url = https://git.code.sf.net/p/bmxlib/libmxfpp
+[submodule "bmxlib-libmxf"]
+	path = bmxlib-libmxf
+	url = https://git.code.sf.net/p/bmxlib/libmxf

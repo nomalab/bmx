@@ -1,0 +1,192 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+new file mode 100644
+index 0000000000..6e4c5f8fa3
+--- /dev/null
++++ b/libavformat/bmxenc.c
+@@ -0,0 +1,153 @@
++
++#include "libavutil/opt.h"
++#include "libavutil/internal.h"
++#include "audiointerleave.h"
++#include "avformat.h"
++#include "internal.h"
++#include "bmxenc.h"
++
++#include <cbmx/essence_type.h>
++#include <cbmx/version.h>
++#include <cbmx/writer.h>
++
++static int bmx_writer_init(AVFormatContext *s)
++{
++    BMXContext* bmx = (BMXContext*)s->priv_data;
++
++    if(s->nb_streams < 1) {
++        return -1;
++    }
++    AVStream *st = s->streams[0];
++
++    struct MxfConfig config;
++    config.clip_type = bmx->clip_type;
++    config.shim_name = bmx->shim_name;
++    config.frame_rate_num = st->time_base.den;
++    config.frame_rate_den = st->time_base.num;
++    config.part = bmx->part;
++    config.aes3 = bmx->aes3;
++    config.kag_512 = bmx->kag_512;
++    config.single_pass = bmx->single_pass;
++
++    bmx->internal_data = create_writer(s->url, &config);
++    return !(bmx->internal_data != NULL);
++}
++
++static void bmx_writer_uninit(AVFormatContext *s)
++{
++    BMXContext* bmx = (BMXContext*)s->priv_data;
++    bmx_uninit(bmx->internal_data);
++    bmx->internal_data = NULL;
++}
++
++static int bmx_write_header(AVFormatContext *s)
++{
++    BMXContext* bmx = (BMXContext*)s->priv_data;
++    bmx->writers = (void**)av_malloc(s->nb_streams * sizeof(void*));
++
++    for (int i = 0; i < s->nb_streams; ++i)
++    {
++        AVStream* st = s->streams[i];
++        EssenceType essence_type = UNKNOWN_ESSENCE_TYPE;
++        switch(st->codecpar->codec_id) {
++            case AV_CODEC_ID_MPEG2VIDEO:
++                if(st->codecpar->width == 1920 && st->codecpar->height == 1080) {
++                    if(st->codecpar->field_order == AV_FIELD_PROGRESSIVE) {
++                        essence_type = MPEG2LG_422P_HL_1080P;
++                        break;
++                    } else {
++                        essence_type = MPEG2LG_422P_HL_1080I;
++                        break;
++                    }
++                }
++            case AV_CODEC_ID_H264:
++            case AV_CODEC_ID_PRORES:
++                break;
++            case AV_CODEC_ID_PCM_S24LE:
++                essence_type = WAVE_PCM;
++                break;
++            default:
++                break;
++        }
++
++        av_log(s, AV_LOG_INFO, "Add stream %d\n", i);
++        if(essence_type != UNKNOWN_ESSENCE_TYPE) {
++            bmx_add_track(bmx->internal_data, essence_type);
++
++            if(st->codecpar->codec_id == AV_CODEC_ID_PCM_S24LE) {
++                bmx_set_quantization_bits(bmx->internal_data, i, st->codecpar->bits_per_coded_sample);
++                bmx_channel_count(bmx->internal_data, i, st->codecpar->channels);
++            }
++        }
++    }
++
++    bmx_init(bmx->internal_data);
++    return 0;
++}
++
++static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
++{
++    BMXContext* bmx = (BMXContext*)s->priv_data;
++    int num_samples = 1;
++
++    if(s->streams[pkt->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
++        num_samples = pkt->size / (s->streams[pkt->stream_index]->codecpar->bits_per_raw_sample / 8);
++    }
++
++    bmx_write_sample(bmx->internal_data, pkt->stream_index, pkt->data, pkt->size, num_samples);
++    return 0;
++}
++
++static int bmx_write_footer(AVFormatContext *s)
++{
++    BMXContext* bmx = (BMXContext*)s->priv_data;
++    bmx_finish(bmx->internal_data);
++    return 0;
++}
++
++#define OFFSET(x) offsetof(BMXContext, x)
++#define E AV_OPT_FLAG_ENCODING_PARAM
++static const AVOption options[] = {
++    { "clip_type", "set clip type", OFFSET(clip_type), AV_OPT_TYPE_INT, {.i64 = CLIP_TYPE_OP1A }, 0, CLIP_TYPE_NB - 1, E, "clip_type"},
++    { "as02", "Wrap an AS02 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_ASO2 }, 0, UINT_MAX, E, "clip_type"},
++    { "op1a", "Wrap an OP1A MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_OP1A }, 0, UINT_MAX, E, "clip_type"},
++    { "avid", "Wrap an Avid MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_AVID }, 0, UINT_MAX, E, "clip_type"},
++    { "d10", "Wrap an D10 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_D10 }, 0, UINT_MAX, E, "clip_type"},
++    { "rdd9", "Wrap an RDD9 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_RDD9 }, 0, UINT_MAX, E, "clip_type"},
++    { "wave", "Wrap an WAVE MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_WAVE }, 0, UINT_MAX, E, "clip_type"},
++    { "shim_name", "Select shim name", OFFSET(shim_name), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "high_hd_2014", "Use Shim AS10 High HD 2014", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_HIGH_HD_2014 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "cnn_hd_2012", "Use Shim AS10 CNN HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_CNN_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "nrk_hd_2012", "Use Shim AS10 NRK HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_NRK_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "jvc_hd_35_vbr_2012", "Use Shim AS10 JVC HD 35 VBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_35_VBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "jvc_hd_25_cbr_2012", "Use Shim AS10 JVC HD 25 CBR 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_JVC_HD_25_CBR_2012 }, 0, UINT_MAX, E, "shim_name_type"},
++    { "aes3", "Enable wrapping of audio in AES-3 pair", OFFSET(aes3), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
++    { "kag_512", "Enable KAG Size 512", OFFSET(kag_512), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
++    { "single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
++    { "part", "Video essence partition interval in frames", OFFSET(part), AV_OPT_TYPE_DURATION, {.i64 = -1 }, -1, INT_MAX, E},
++    { NULL },
++};
++
++static const AVClass bmx_class = {
++    .class_name = "bmx muxer",
++    .item_name  = av_default_item_name,
++    .option     = options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
++AVOutputFormat ff_bmx_muxer = {
++    .name           = "bmx",
++    .long_name      = NULL_IF_CONFIG_SMALL("BMX Muxer"),
++    .mime_type      = "application/mxf",
++    .extensions     = "mxf",
++    .priv_data_size = sizeof(BMXContext),
++    .audio_codec    = AV_CODEC_ID_PCM_S16LE,
++    .video_codec    = AV_CODEC_ID_MPEG2VIDEO,
++    .flags          = AVFMT_NOTIMESTAMPS,
++    .init           = bmx_writer_init,
++    .write_header   = bmx_write_header,
++    .write_packet   = bmx_write_packet,
++    .write_trailer  = bmx_write_footer,
++    .deinit         = bmx_writer_uninit,
++    .priv_class     = &bmx_class,
++};
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+new file mode 100644
+index 0000000000..7beeed5067
+--- /dev/null
++++ b/libavformat/bmxenc.h
+@@ -0,0 +1,27 @@
++
++#ifndef AVFORMAT_BMXENC_H
++#define AVFORMAT_BMXENC_H
++
++#include "avformat.h"
++#include <cbmx/writer.h>
++
++typedef struct BMXContext {
++    const AVClass* class;  /* Class for private options. */
++    ClipType clip_type;
++    ShimName shim_name;
++    float part;
++    int aes3;
++    int kag_512;
++    int single_pass;
++    void* internal_data;
++    void** writers;
++} BMXContext;
++
++int bmx_create_bmx_wrapper(AVFormatContext *s);
++void bmx_delete_bmx_wrapper(AVFormatContext *s);
++
++void bmx_init_streams(AVFormatContext *s);
++void bmx_write(AVFormatContext *s, AVPacket *pkt);
++void bmx_end_of_streams(AVFormatContext *s);
++
++#endif /* AVFORMAT_BMXENC_H */
