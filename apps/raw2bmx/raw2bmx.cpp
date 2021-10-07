@@ -64,6 +64,7 @@
 #include <bmx/essence_parser/FileEssenceSource.h>
 #include <bmx/essence_parser/KLVEssenceSource.h>
 #include <bmx/essence_parser/FilePatternEssenceSource.h>
+#include <bmx/essence_parser/D10RawEssenceReader.h>
 #include <bmx/essence_parser/MPEG2AspectRatioFilter.h>
 #include <bmx/mxf_helper/RDD36MXFDescriptorHelper.h>
 #include <bmx/wave/WaveFileIO.h>
@@ -174,7 +175,7 @@ struct RawInput
     BMX_OPT_PROP_DECL(uint32_t, comp_min_ref);
     BMX_OPT_PROP_DECL(uint8_t, scan_dir);
     BMX_OPT_PROP_DECL(mxfThreeColorPrimaries, display_primaries);
-    BMX_OPT_PROP_DECL(mxfColorPrimary, display_chroma);
+    BMX_OPT_PROP_DECL(mxfColorPrimary, display_white_point);
     BMX_OPT_PROP_DECL(uint32_t, display_max_luma);
     BMX_OPT_PROP_DECL(uint32_t, display_min_luma);
     int vc2_mode_flags;
@@ -299,6 +300,13 @@ static bool open_raw_reader(RawInput *input)
     {
         input->raw_reader = new AVCIRawEssenceReader(essence_source);
     }
+    else if (input->essence_type_group == D10_ESSENCE_GROUP ||
+             input->essence_type == D10_30 ||
+             input->essence_type == D10_40 ||
+             input->essence_type == D10_50)
+    {
+        input->raw_reader = new D10RawEssenceReader(essence_source);
+    }
     else
     {
         input->raw_reader = new RawEssenceReader(essence_source);
@@ -337,7 +345,7 @@ static void init_input(RawInput *input)
     BMX_OPT_PROP_DEFAULT(input->comp_min_ref, 0);
     BMX_OPT_PROP_DEFAULT(input->scan_dir, 0);
     BMX_OPT_PROP_DEFAULT(input->display_primaries, g_Null_Three_Color_Primaries);
-    BMX_OPT_PROP_DEFAULT(input->display_chroma, g_Null_Color_Primary);
+    BMX_OPT_PROP_DEFAULT(input->display_white_point, g_Null_Color_Primary);
     BMX_OPT_PROP_DEFAULT(input->display_max_luma, 0);
     BMX_OPT_PROP_DEFAULT(input->display_min_luma, 0);
     parse_vc2_mode("1", &input->vc2_mode_flags);
@@ -609,12 +617,12 @@ static void usage(const char *cmd)
     fprintf(stderr, "  --comp-max-ref <value>  Set the RGBA component maximum reference level\n");
     fprintf(stderr, "  --comp-min-ref <value>  Set the RGBA component minimum reference level\n");
     fprintf(stderr, "  --scan-dir <value>      Set the RGBA scanning direction\n");
-    fprintf(stderr, "  --display-primaries <value>  Set the mastering display primaries.\n");
-    fprintf(stderr, "                               The <value> is an array of 6 unsigned integers separated by a ','.\n");
-    fprintf(stderr, "  --display-chroma <value>     Set the mastering display white point chromaticity.\n");
-    fprintf(stderr, "                               The <value> is an array of 2 unsigned integers separated by a ','.\n");
-    fprintf(stderr, "  --display-max-luma <value>   Set the mastering display maximum luminance.\n");
-    fprintf(stderr, "  --display-min-luma <value>   Set the mastering display minimum luminance.\n");
+    fprintf(stderr, "  --display-primaries <value>    Set the mastering display primaries.\n");
+    fprintf(stderr, "                                 The <value> is an array of 6 unsigned integers separated by a ','.\n");
+    fprintf(stderr, "  --display-white-point <value>  Set the mastering display white point chromaticity.\n");
+    fprintf(stderr, "                                 The <value> is an array of 2 unsigned integers separated by a ','.\n");
+    fprintf(stderr, "  --display-max-luma <value>     Set the mastering display maximum luminance.\n");
+    fprintf(stderr, "  --display-min-luma <value>     Set the mastering display minimum luminance.\n");
     fprintf(stderr, "  --rdd36-opaque          Treat RDD-36 4444 or 4444 XQ as opaque by omitting the Alpha Sample Depth property\n");
     fprintf(stderr, "  --active-width          Set the Active Width of the active area rectangle\n");
     fprintf(stderr, "  --active-height         Set the Active Height of the active area rectangle\n");
@@ -856,6 +864,7 @@ int main(int argc, const char** argv)
     BMX_OPT_PROP_DECL_DEF(uint32_t, head_fill, 0);
     mxfThreeColorPrimaries three_color_primaries;
     mxfColorPrimary color_primary;
+    bool real_essence_regtest = false;
     int value, num, den;
     unsigned int uvalue;
     int64_t i64value;
@@ -1761,6 +1770,11 @@ int main(int argc, const char** argv)
             }
             cmdln_index++;
         }
+        else if (strcmp(argv[cmdln_index], "--regtest-real") == 0)
+        {
+            BMX_REGRESSION_TEST = true;
+            real_essence_regtest = true;
+        }
         else
         {
             break;
@@ -2090,7 +2104,7 @@ int main(int argc, const char** argv)
             cmdln_index++;
             continue; // skip input reset at the end
         }
-        else if (strcmp(argv[cmdln_index], "--display-chroma") == 0)
+        else if (strcmp(argv[cmdln_index], "--display-white-point") == 0)
         {
             if (cmdln_index + 1 >= argc)
             {
@@ -2103,7 +2117,7 @@ int main(int argc, const char** argv)
                 fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
                 return 1;
             }
-            BMX_OPT_PROP_SET(input.display_chroma, color_primary);
+            BMX_OPT_PROP_SET(input.display_white_point, color_primary);
             cmdln_index++;
             continue; // skip input reset at the end
         }
@@ -3848,6 +3862,7 @@ int main(int argc, const char** argv)
 
             // TODO: more parse friendly regression test essence data
             if (BMX_REGRESSION_TEST &&
+                !real_essence_regtest &&
                 input->essence_type != RDD36_422 &&
                 input->essence_type != RDD36_4444)
             {
@@ -3937,8 +3952,15 @@ int main(int argc, const char** argv)
                 if (input->raw_reader->GetNumSamples() != 0) {
                     rdd36_parser->ParseFrameInfo(input->raw_reader->GetSampleData(), input->raw_reader->GetSampleDataSize());
 
-                    if (!frame_rate_set && rdd36_parser->HaveFrameRate())
-                        frame_rate = rdd36_parser->GetFrameRate();
+                    if (!frame_rate_set) {
+                        if (rdd36_parser->HaveFrameRate()) {
+                            frame_rate = rdd36_parser->GetFrameRate();
+                        } else {
+                            log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                     essence_type_to_string(input->essence_type),
+                                     frame_rate.numerator, frame_rate.denominator);
+                        }
+                    }
 
                     // other parameters derived from the bitstream metadata will be set in the RDD36MXFDescriptorHelper
                 }
@@ -4211,8 +4233,15 @@ int main(int argc, const char** argv)
                     throw false;
                 }
 
-                if (!frame_rate_set && avc_parser->HaveFrameRate())
-                    frame_rate = avc_parser->GetFrameRate();
+                if (!frame_rate_set) {
+                    if (avc_parser->HaveFrameRate()) {
+                        frame_rate = avc_parser->GetFrameRate();
+                    } else {
+                        log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                 essence_type_to_string(input->essence_type),
+                                 frame_rate.numerator, frame_rate.denominator);
+                    }
+                }
 
                 // re-open the raw reader to use the special AVCI reader
                 delete input->raw_reader;
@@ -4253,8 +4282,15 @@ int main(int argc, const char** argv)
                     }
                     input->essence_type = avc_parser->GetEssenceType();
 
-                    if (!frame_rate_set && avc_parser->HaveFrameRate())
-                        frame_rate = avc_parser->GetFrameRate();
+                    if (!frame_rate_set) {
+                        if (avc_parser->HaveFrameRate()) {
+                            frame_rate = avc_parser->GetFrameRate();
+                        } else {
+                            log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                    essence_type_to_string(input->essence_type),
+                                    frame_rate.numerator, frame_rate.denominator);
+                        }
+                    }
 
                     // TODO: other parameters?
                 }
@@ -5058,8 +5094,8 @@ int main(int argc, const char** argv)
                     pict_helper->SetScanningDirection(input->scan_dir);
                 if (BMX_OPT_PROP_IS_SET(input->display_primaries))
                     pict_helper->SetMasteringDisplayPrimaries(input->display_primaries);
-                if (BMX_OPT_PROP_IS_SET(input->display_chroma))
-                    pict_helper->SetMasteringDisplayWhitePointChromaticity(input->display_chroma);
+                if (BMX_OPT_PROP_IS_SET(input->display_white_point))
+                    pict_helper->SetMasteringDisplayWhitePointChromaticity(input->display_white_point);
                 if (BMX_OPT_PROP_IS_SET(input->display_max_luma))
                     pict_helper->SetMasteringDisplayMaximumLuminance(input->display_max_luma);
                 if (BMX_OPT_PROP_IS_SET(input->display_min_luma))

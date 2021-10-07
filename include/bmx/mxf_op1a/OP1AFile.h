@@ -58,6 +58,7 @@
 #define OP1A_MP_TRACK_NUMBER_FLAVOUR        0x0100      // set the Material Package Track Number
 #define OP1A_AS11_FLAVOUR                   0x0200
 #define OP1A_AES_FLAVOUR                    0x0400
+#define OP1A_SYSTEM_ITEM_FLAVOUR            0x0800      // add system item
 
 
 
@@ -91,6 +92,7 @@ public:
     void SetClipWrapped(bool enable);                                   // default false (frame wrapped)
     void SetAddSystemItem(bool enable);                                 // default false, no system item
     void SetRepeatIndexTable(bool enable);                              // default false. Repeat index table in Footer if true
+    void ForceWriteCBEDuration0(bool enable);                           // force duration=0 for CBE index table
 
 public:
     void SetOutputStartOffset(int64_t offset);
