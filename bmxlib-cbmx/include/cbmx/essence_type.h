@@ -1,4 +1,3 @@
-
 #ifndef __CBMX_ESSENCE_TYPE_H__
 #define __CBMX_ESSENCE_TYPE_H__
 
@@ -78,6 +77,9 @@ typedef enum
     RDD36_422_HQ,
     RDD36_4444,
     RDD36_4444_XQ,
+    // JPEG 2000
+    JPEG2000_CDCI,
+    JPEG2000_RGBA,
     // VC-2
     VC2,
     // VC-3
@@ -109,6 +111,8 @@ typedef enum
     // ST 436 data
     ANC_DATA,
     VBI_DATA,
+    // Timed Text data
+    TIMED_TEXT,
 } EssenceType;
 
 #ifdef __cplusplus
