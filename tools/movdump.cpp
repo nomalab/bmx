@@ -338,6 +338,26 @@ static bool read_int8(int8_t *value)
     return true;
 }
 
+static bool read_float32(float *value)
+{
+    uint32_t uvalue;
+    if (!read_uint32(&uvalue))
+        return false;
+
+    memcpy(value, &uvalue, sizeof(float));
+    return true;
+}
+
+static bool read_float64(double *value)
+{
+    uint64_t uvalue;
+    if (!read_uint64(&uvalue))
+        return false;
+
+    memcpy(value, &uvalue, sizeof(double));
+    return true;
+}
+
 static void write_avcc_ps(unsigned char **buffer, size_t *buffer_size, uint8_t length_size, uint16_t ps_size)
 {
     if (!g_avcc_file) {
@@ -640,7 +660,7 @@ static void dump_bytes(unsigned char *bytes, uint64_t size, int extra_indent_amo
     }
 }
 
-static void dump_string_bytes(unsigned char *buffer, uint32_t size, int extra_indent_amount)
+static void dump_string_bytes(unsigned char *buffer, uint64_t size, int extra_indent_amount)
 {
     uint64_t i;
     for (i = 0; i < size; i++) {
@@ -729,8 +749,12 @@ static void dump_counted_string(uint64_t size, int extra_indent_amount = 0)
 static void dump_type(const char *type)
 {
     size_t i;
-    for (i = 0; i < 4; i++)
-        printf("%c", type[i]);
+    for (i = 0; i < 4; i++) {
+        if (isprint((unsigned char)type[i]))
+            printf("%c", type[i]);
+        else
+            printf("\\x%02x", (unsigned char)type[i]);
+    }
 }
 
 static void dump_uint32_tag(uint32_t value)
@@ -1547,6 +1571,98 @@ static void dump_co64_atom()
     }
 }
 
+static void dump_sgpd_atom()
+{
+    uint8_t version;
+    uint32_t flags;
+    dump_full_atom_header(&version, &flags);
+
+    if (version != 0x01) {
+        dump_unknown_version(version);
+        return;
+    }
+
+
+    uint32_t grouping_type;
+    MOV_CHECK(read_uint32(&grouping_type));
+    indent();
+    printf("grouping_type: ");
+    dump_uint32_tag(grouping_type);
+    printf("\n");
+
+    uint32_t default_length;
+    MOV_CHECK(read_uint32(&default_length));
+    indent();
+    printf("default_length: %u\n", default_length);
+
+    uint32_t entry_count;
+    MOV_CHECK(read_uint32(&entry_count));
+    indent();
+    printf("entry_count: %u\n", entry_count);
+
+    int16_t payload_data;
+    MOV_CHECK(read_int16(&payload_data));
+    indent();
+    printf("payload_data: %d\n", payload_data);
+}
+
+static void dump_sbgp_atom()
+{
+    uint8_t version;
+    uint32_t flags;
+    dump_full_atom_header(&version, &flags);
+
+    if (version != 0x00) {
+        dump_unknown_version(version);
+        return;
+    }
+
+
+    uint32_t grouping_type;
+    MOV_CHECK(read_uint32(&grouping_type));
+    indent();
+    printf("grouping_type: ");
+    dump_uint32_tag(grouping_type);
+    printf("\n");
+
+    uint32_t num_entries;
+    MOV_CHECK(read_uint32(&num_entries));
+    indent();
+    printf("entries (");
+    dump_uint32(num_entries, false);
+    printf("):\n");
+
+    if (num_entries > 0) {
+        indent(4);
+        if (num_entries < 0xffff)
+            printf("   i");
+        else if (num_entries < 0xffffff)
+            printf("     i");
+        else
+            printf("       i");
+        printf("       count      index\n");
+
+        uint32_t i;
+        for (i = 0; i < num_entries; i++) {
+            uint32_t count;
+            MOV_CHECK(read_uint32(&count));
+
+            uint32_t index;
+            MOV_CHECK(read_uint32(&index));
+
+            indent(4);
+            dump_uint32_index(num_entries, i);
+            printf("  ");
+
+            dump_uint32(count, false);
+            printf(" ");
+
+            dump_uint32(index, false);
+            printf("\n");
+        }
+    }
+}
+
 static void dump_hdlr_atom()
 {
     uint8_t version;
@@ -2155,21 +2271,110 @@ static void dump_esds_atom()
         dump_mp4_object_descriptor((uint32_t)CURRENT_ATOM.rem_size);
 }
 
-static uint32_t dump_stbl_soun(uint32_t size)
+static void dump_frma_atom()
 {
+    dump_atom_header();
+
+    uint32_t data_format;
+    MOV_CHECK(read_uint32(&data_format));
+    indent(2);
+    printf("data_format: ");
+    dump_uint32_chars(data_format);
+    printf("\n");
+}
+
+static void dump_wave_atom()
+{
+    // Note that the 'mp4a' atom and the terminator atom, both part of
+    // the 'wave' atom, do not have dedicated dump routines. Format of
+    // the 'mp4a' atom is unknown and is dumped as binary blob and the
+    // terminator atom has no fields.
     static const DumpFuncMap dump_func_map[] =
     {
         {{'e','s','d','s'}, dump_esds_atom},
-        {{'b','t','r','t'}, dump_btrt_atom},
+        {{'f','r','m','a'}, dump_frma_atom},
     };
 
-    MOV_CHECK(size <= CURRENT_ATOM.rem_size);
-    uint64_t end_atom_rem_size = CURRENT_ATOM.rem_size - size;
+    dump_container_atom(dump_func_map, DUMP_FUNC_MAP_SIZE);
+}
 
-    uint16_t version;
-    MOV_CHECK(read_uint16(&version));
-    indent(2);
-    printf("version: %u\n", version);
+static void dump_audio_channel_layout_tag(uint32_t channel_layout_tag)
+{
+    dump_uint32(channel_layout_tag, true);
+    // CoreAudio declaration
+    printf(" ((%u<<16) | %u)", channel_layout_tag >> 16,
+                               channel_layout_tag & 0xffff);
+}
+
+static void dump_chan_atom()
+{
+    uint8_t version;
+    uint32_t flags;
+    dump_full_atom_header(&version, &flags);
+
+    uint32_t channel_layout_tag;
+    MOV_CHECK(read_uint32(&channel_layout_tag));
+    indent();
+    printf("channel_layout_tag: ");
+    dump_audio_channel_layout_tag(channel_layout_tag);
+    printf("\n");
+
+    uint32_t channel_bitmap;
+    MOV_CHECK(read_uint32(&channel_bitmap));
+    indent();
+    printf("channel_bitmap: ");
+    dump_uint32(channel_bitmap, true);
+    printf("\n");
+
+    uint32_t number_channel_descriptions;
+    MOV_CHECK(read_uint32(&number_channel_descriptions));
+    indent();
+    printf("channel_descriptions (");
+    dump_uint32(number_channel_descriptions, false);
+    printf("):\n");
+
+    if (number_channel_descriptions > 0) {
+        indent(4);
+        if (number_channel_descriptions < 0xffff)
+            printf("   i");
+        else if (number_channel_descriptions < 0xffffff)
+            printf("     i");
+        else
+            printf("       i");
+        printf("  channel_label  channel_flags          coordinates\n");
+
+        uint32_t i;
+        for (i = 0; i < number_channel_descriptions; i++) {
+
+            indent(4);
+            dump_uint32_index(number_channel_descriptions, i);
+            printf("     ");
+
+            uint32_t channel_label;
+            MOV_CHECK(read_uint32(&channel_label));
+            dump_uint32(channel_label, false);
+            printf("     ");
+
+            uint32_t channel_flags;
+            MOV_CHECK(read_uint32(&channel_flags));
+            dump_uint32(channel_flags, true);
+            printf("  ");
+
+            uint32_t c;
+            for (c = 0; c < 3; c++) {
+                float coordinate;
+                MOV_CHECK(read_float32(&coordinate));
+                printf("%5.2f%s", coordinate, (c < 2 ? ", " : ""));
+            }
+
+            printf("\n");
+        }
+    }
+}
+
+static void dump_stbl_soun_v0_v1(uint32_t version)
+{
+    MOV_CHECK(version == 0 || version == 1);
 
     uint16_t revision;
     MOV_CHECK(read_uint16(&revision));
@@ -2231,9 +2436,128 @@ static uint32_t dump_stbl_soun(uint32_t size)
         indent(2);
         printf("bytes_per_sample: %u\n", bytes_per_sample);
     }
+}
+
+static void dump_stbl_soun_v2()
+{
+    uint16_t revision;
+    MOV_CHECK(read_uint16(&revision));
+    indent(2);
+    printf("revision: 0x%04x\n", revision);
+
+    uint32_t vendor;
+    MOV_CHECK(read_uint32(&vendor));
+    indent(2);
+    printf("vendor: ");
+    dump_uint32_chars(vendor);
+    printf("\n");
+
+    uint16_t always_3;
+    MOV_CHECK(read_uint16(&always_3));
+    indent(2);
+    printf("always_3: ");
+    dump_uint16(always_3, true);
+    printf("\n");
+
+    uint16_t always_16;
+    MOV_CHECK(read_uint16(&always_16));
+    indent(2);
+    printf("always_16: ");
+    dump_uint16(always_16, true);
+    printf("\n");
+
+    uint16_t always_minus2;
+    MOV_CHECK(read_uint16(&always_minus2));
+    indent(2);
+    printf("always_minus2: ");
+    dump_uint16(always_minus2, true);
+    printf("\n");
+
+    uint16_t always_0;
+    MOV_CHECK(read_uint16(&always_0));
+    indent(2);
+    printf("always_0: ");
+    dump_uint16(always_0, true);
+    printf("\n");
+
+    uint32_t always_65536;
+    MOV_CHECK(read_uint32(&always_65536));
+    indent(2);
+    printf("always_65536: ");
+    dump_uint32(always_65536, true);
+    printf("\n");
+
+    uint32_t size_of_struct_only;
+    MOV_CHECK(read_uint32(&size_of_struct_only));
+    indent(2);
+    printf("size_of_struct_only: %u\n", size_of_struct_only);
+
+    double audio_sample_rate;
+    MOV_CHECK(read_float64(&audio_sample_rate));
+    indent(2);
+    printf("audio_sample_rate: %.2f", audio_sample_rate);
+    printf("\n");
+
+    uint32_t num_audio_channels;
+    MOV_CHECK(read_uint32(&num_audio_channels));
+    indent(2);
+    printf("num_audio_channels: %u\n", num_audio_channels);
+
+    uint32_t always_7f000000;
+    MOV_CHECK(read_uint32(&always_7f000000));
+    indent(2);
+    printf("always_7f000000: ");
+    dump_uint32(always_7f000000, true);
+    printf("\n");
+
+
+    uint32_t const_bits_per_channel;
+    MOV_CHECK(read_uint32(&const_bits_per_channel));
+    indent(2);
+    printf("const_bits_per_channel: %u\n", const_bits_per_channel);
+
+    uint32_t format_specific_flags;
+    MOV_CHECK(read_uint32(&format_specific_flags));
+    indent(2);
+    printf("format_specific_flags: %u\n", format_specific_flags);
+
+    uint32_t const_bytes_per_audio_packet;
+    MOV_CHECK(read_uint32(&const_bytes_per_audio_packet));
+    indent(2);
+    printf("const_bytes_per_audio_packet: %u\n", const_bytes_per_audio_packet);
+
+    uint32_t const_lpcm_frames_per_audio_packet;
+    MOV_CHECK(read_uint32(&const_lpcm_frames_per_audio_packet));
+    indent(2);
+    printf("const_lpcm_frames_per_audio_packet: %u\n", const_lpcm_frames_per_audio_packet);
+}
+
+static uint32_t dump_stbl_soun(uint32_t size)
+{
+    static const DumpFuncMap dump_func_map[] =
+    {
+        {{'e','s','d','s'}, dump_esds_atom},
+        {{'b','t','r','t'}, dump_btrt_atom},
+        {{'w','a','v','e'}, dump_wave_atom},
+        {{'c','h','a','n'}, dump_chan_atom},
+    };
+
+    MOV_CHECK(size <= CURRENT_ATOM.rem_size);
+    uint64_t end_atom_rem_size = CURRENT_ATOM.rem_size - size;
+
+    uint16_t version;
+    MOV_CHECK(read_uint16(&version));
+    indent(2);
+    printf("version: %u\n", version);
+
+    if (version == 0 || version == 1) {
+        dump_stbl_soun_v0_v1(version);
+    } else if (version == 2) {
+        dump_stbl_soun_v2();
+    }
 
     // extensions
-    if (version == 0 || version == 1) { // size is known for these versions and can be sure what follows will be atoms
+    if (version == 0 || version == 1 || version == 2) { // size is known for these versions and can be sure what follows will be atoms
         while (CURRENT_ATOM.rem_size > end_atom_rem_size + 8) {
             push_atom();
 
@@ -2384,6 +2708,8 @@ static void dump_stbl_atom()
         {{'s','t','s','z'}, dump_stsz_atom},
         {{'s','t','c','o'}, dump_stco_atom},
         {{'c','o','6','4'}, dump_co64_atom},
+        {{'s','g','p','d'}, dump_sgpd_atom},
+        {{'s','b','g','p'}, dump_sbgp_atom},
     };
 
     dump_container_atom(dump_func_map, DUMP_FUNC_MAP_SIZE);

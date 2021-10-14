@@ -57,11 +57,14 @@
 #include <bmx/essence_parser/AVCIRawEssenceReader.h>
 #include <bmx/essence_parser/MJPEGEssenceParser.h>
 #include <bmx/essence_parser/RDD36EssenceParser.h>
+#include <bmx/essence_parser/J2CEssenceParser.h>
 #include <bmx/essence_parser/VC3EssenceParser.h>
 #include <bmx/essence_parser/VC2EssenceParser.h>
 #include <bmx/essence_parser/RawEssenceReader.h>
 #include <bmx/essence_parser/FileEssenceSource.h>
 #include <bmx/essence_parser/KLVEssenceSource.h>
+#include <bmx/essence_parser/FilePatternEssenceSource.h>
+#include <bmx/essence_parser/D10RawEssenceReader.h>
 #include <bmx/essence_parser/MPEG2AspectRatioFilter.h>
 #include <bmx/mxf_helper/RDD36MXFDescriptorHelper.h>
 #include <bmx/wave/WaveFileIO.h>
@@ -72,6 +75,7 @@
 #include <bmx/Utils.h>
 #include <bmx/Version.h>
 #include <bmx/apps/AppUtils.h>
+#include <bmx/apps/TimedTextManifestParser.h>
 #include <bmx/as11/AS11Labels.h>
 #include <bmx/as10/AS10ShimNames.h>
 #include <bmx/as10/AS10MPEG2Validator.h>
@@ -130,6 +134,8 @@ struct RawInput
     bool parse_klv;
     mxfKey klv_key;
     uint32_t klv_track_num;
+    const char *file_pattern;
+    bool fill_pattern_gaps;
 
     int64_t output_start_offset;
     int64_t output_end_offset;
@@ -137,6 +143,7 @@ struct RawInput
     RawEssenceReader *raw_reader;
     WaveReader *wave_reader;
     uint32_t channel_count;
+    TimedTextManifestParser timed_text_manifest;
 
     uint32_t sample_sequence[32];
     size_t sample_sequence_size;
@@ -164,8 +171,19 @@ struct RawInput
     BMX_OPT_PROP_DECL(uint32_t, black_ref_level);
     BMX_OPT_PROP_DECL(uint32_t, white_ref_level);
     BMX_OPT_PROP_DECL(uint32_t, color_range);
+    BMX_OPT_PROP_DECL(uint32_t, comp_max_ref);
+    BMX_OPT_PROP_DECL(uint32_t, comp_min_ref);
+    BMX_OPT_PROP_DECL(uint8_t, scan_dir);
+    BMX_OPT_PROP_DECL(mxfThreeColorPrimaries, display_primaries);
+    BMX_OPT_PROP_DECL(mxfColorPrimary, display_white_point);
+    BMX_OPT_PROP_DECL(uint32_t, display_max_luma);
+    BMX_OPT_PROP_DECL(uint32_t, display_min_luma);
     int vc2_mode_flags;
     BMX_OPT_PROP_DECL(bool, rdd36_opaque);
+    BMX_OPT_PROP_DECL(uint32_t, active_width);
+    BMX_OPT_PROP_DECL(uint32_t, active_height);
+    BMX_OPT_PROP_DECL(uint32_t, active_x_offset);
+    BMX_OPT_PROP_DECL(uint32_t, active_y_offset);
 
     // sound
     Rational sampling_rate;
@@ -197,7 +215,6 @@ namespace bmx
 {
 extern bool BMX_REGRESSION_TEST;
 };
-
 
 
 static bool regtest_output_track_map_comp(const TrackMapper::OutputTrackMap &left,
@@ -239,15 +256,29 @@ static bool open_raw_reader(RawInput *input)
         return true;
     }
 
-    FileEssenceSource *file_source = new FileEssenceSource();
-    if (!file_source->Open(input->filename, input->file_start_offset)) {
-        log_error("Failed to open input file '%s' at start offset %" PRId64 ": %s\n",
-                  input->filename, input->file_start_offset, file_source->GetStrError().c_str());
-        delete file_source;
-        return false;
+    EssenceSource *essence_source;
+
+    BMX_ASSERT(input->filename || input->file_pattern);
+    if (input->filename) {
+        FileEssenceSource *file_source = new FileEssenceSource();
+        if (!file_source->Open(input->filename, input->file_start_offset)) {
+            log_error("Failed to open input file '%s' at start offset %" PRId64 ": %s\n",
+                    input->filename, input->file_start_offset, file_source->GetStrError().c_str());
+            delete file_source;
+            return false;
+        }
+        essence_source = file_source;
+    } else {
+        FilePatternEssenceSource *file_pattern_source = new FilePatternEssenceSource(input->fill_pattern_gaps);
+        if (!file_pattern_source->Open(input->file_pattern, input->file_start_offset)) {
+            log_error("Failed to open file pattern '%s' at start offset %" PRId64 ": %s\n",
+                    input->file_pattern, input->file_start_offset, file_pattern_source->GetStrError().c_str());
+            delete file_pattern_source;
+            return false;
+        }
+        essence_source = file_pattern_source;
     }
 
-    EssenceSource *essence_source = file_source;
     if (input->parse_klv) {
         KLVEssenceSource *klv_source;
         if (input->klv_track_num)
@@ -268,6 +299,13 @@ static bool open_raw_reader(RawInput *input)
         input->essence_type == AVCI50_720P)
     {
         input->raw_reader = new AVCIRawEssenceReader(essence_source);
+    }
+    else if (input->essence_type_group == D10_ESSENCE_GROUP ||
+             input->essence_type == D10_30 ||
+             input->essence_type == D10_40 ||
+             input->essence_type == D10_50)
+    {
+        input->raw_reader = new D10RawEssenceReader(essence_source);
     }
     else
     {
@@ -303,8 +341,19 @@ static void init_input(RawInput *input)
     BMX_OPT_PROP_DEFAULT(input->black_ref_level, 0);
     BMX_OPT_PROP_DEFAULT(input->white_ref_level, 0);
     BMX_OPT_PROP_DEFAULT(input->color_range, 0);
+    BMX_OPT_PROP_DEFAULT(input->comp_max_ref, 0);
+    BMX_OPT_PROP_DEFAULT(input->comp_min_ref, 0);
+    BMX_OPT_PROP_DEFAULT(input->scan_dir, 0);
+    BMX_OPT_PROP_DEFAULT(input->display_primaries, g_Null_Three_Color_Primaries);
+    BMX_OPT_PROP_DEFAULT(input->display_white_point, g_Null_Color_Primary);
+    BMX_OPT_PROP_DEFAULT(input->display_max_luma, 0);
+    BMX_OPT_PROP_DEFAULT(input->display_min_luma, 0);
     parse_vc2_mode("1", &input->vc2_mode_flags);
     BMX_OPT_PROP_DEFAULT(input->rdd36_opaque, false);
+    BMX_OPT_PROP_DEFAULT(input->active_width, 0);
+    BMX_OPT_PROP_DEFAULT(input->active_height, 0);
+    BMX_OPT_PROP_DEFAULT(input->active_x_offset, 0);
+    BMX_OPT_PROP_DEFAULT(input->active_y_offset, 0);
     input->sampling_rate = DEFAULT_SAMPLING_RATE;
     BMX_OPT_PROP_DEFAULT(input->component_depth, 8);
     input->bits_per_sample = 16;
@@ -343,6 +392,7 @@ static void usage(const char *cmd)
     fprintf(stderr, "  -l <file>               Log filename. Default log to stderr/stdout\n");
     fprintf(stderr, " --log-level <level>      Set the log level. 0=debug, 1=info, 2=warning, 3=error. Default is 1\n");
     fprintf(stderr, "  -t <type>               Clip type: as02, as11op1a, as11d10, op1a, avid, d10, rdd9, as10, wave. Default is op1a\n");
+    fprintf(stderr, "                          Note that an 'op1a' output file type could be signalled as OP-1b if there is a Timed Text track\n");
     fprintf(stderr, "* -o <name>               as02: <name> is a bundle name\n");
     fprintf(stderr, "                          as11op1a/as11d10/op1a/d10/rdd9/as10/wave: <name> is a filename\n");
     fprintf(stderr, "                          avid: <name> is a filename prefix\n");
@@ -419,8 +469,11 @@ static void usage(const char *cmd)
     fprintf(stderr, "                                       as11-x2 : AMWA AS-11 X2, delivery of finished HD AVC Intra programs to a broadcaster or publisher\n");
     fprintf(stderr, "                                       as11-x3 : AMWA AS-11 X3, delivery of finished HD AVC Long GOP programs to a broadcaster or publisher\n");
     fprintf(stderr, "                                       as11-x4 : AMWA AS-11 X4, delivery of finished HD AVC Long GOP programs to a broadcaster or publisher\n");
+    fprintf(stderr, "                                       as11-x5 : AMWA AS-11 X5, delivery of finished UHD TV Commericals and Promotions to UK Digital Production Partnership (DPP) broadcasters\n");
+    fprintf(stderr, "                                       as11-x6 : AMWA AS-11 X6, delivery of finished HD TV Commercials and Promotions to UK Digital Production Partnership (DPP) broadcasters\n");
     fprintf(stderr, "                                       as11-x7 : AMWA AS-11 X7, delivery of finished SD D10 programs to a broadcaster or publisher\n");
     fprintf(stderr, "                                       as11-x8 : AMWA AS-11 X8, delivery of finished HD (MPEG-2) programs to North American Broadcasters Association (NABA) broadcasters\n");
+    fprintf(stderr, "                                       as11-x9 : AMWA AS-11 X9, delivery of finished HD TV Programmes (AVC) to North American Broadcasters Association (NABA) broadcasters\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  as11op1a/op1a/rdd9/as10:\n");
     fprintf(stderr, "    --out-start <offset>    Offset to start of first output frame, eg. pre-charge in MPEG-2 Long GOP\n");
@@ -443,6 +496,7 @@ static void usage(const char *cmd)
     fprintf(stderr, "    --clip-wrap             Use clip wrapping for a single sound track\n");
     fprintf(stderr, "    --mp-track-num          Use the material package track number property to define a track order. By default the track number is set to 0\n");
     fprintf(stderr, "    --aes-3                 Use AES-3 audio mapping\n");
+    fprintf(stderr, "    --kag-size-512          Set KAG size to 512, instead of 1\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  op1a/rdd9/d10:\n");
     fprintf(stderr, "    --xml-scheme-id <id>    Set the XML payload scheme identifier associated with the following --embed-xml option.\n");
@@ -495,6 +549,15 @@ static void usage(const char *cmd)
     fprintf(stderr, "    --locator <position> <comment> <color>\n");
     fprintf(stderr, "                            Add locator at <position> (in frame rate units) with <comment> and <color>\n");
     fprintf(stderr, "                            <position> format is o?hh:mm:sscff, where the optional 'o' indicates it is an offset\n");
+    fprintf(stderr, "    --umid-type <type>      Set the UMID type that is generated for the Package UID properties.\n");
+    fprintf(stderr, "                            The default <type> is 'aafsdk'.\n");
+    fprintf(stderr, "                            The <type> is one of the following:\n");
+    fprintf(stderr, "                              uuid       : UUID generation method\n");
+    fprintf(stderr, "                              aafsdk     : same method as implemented in the AAF SDK\n");
+    fprintf(stderr, "                                           This type is required to be compatible with some older Avid product versions\n");
+    fprintf(stderr, "                                           Note: this is not guaranteed to create a unique UMID when used in multiple processes\n");
+    fprintf(stderr, "                              old-aafsdk : same method as implemented in revision 1.47 of AAF/ref-impl/src/impl/AAFUtils.c in the AAF SDK\n");
+    fprintf(stderr, "                                           Note: this is not guaranteed to create a unique UMID when used in multiple processes\n");
     fprintf(stderr, "    --mp-uid <umid>         Set the Material Package UID. Autogenerated by default\n");
     fprintf(stderr, "    --mp-created <tstamp>   Set the Material Package creation date. Default is 'now'\n");
     fprintf(stderr, "    --psp-uid <umid>        Set the tape/import Source Package UID. Autogenerated by default\n");
@@ -548,10 +611,23 @@ static void usage(const char *cmd)
     fprintf(stderr, "  --color-siting <value>  Set the color siting. The <value> is one of the following:\n");
     fprintf(stderr, "                              'cositing', 'horizmp', '3tap', 'quincunx', 'bt601', 'linealt', 'vertmp', 'unknown'\n");
     fprintf(stderr, "                              (Note that 'bt601' is deprecated in SMPTE ST 377-1. Use 'cositing' instead)\n");
-    fprintf(stderr, "  --black-level <value>   Set the black reference level\n");
-    fprintf(stderr, "  --white-level <value>   Set the white reference level\n");
-    fprintf(stderr, "  --color-range <value>   Set the color range\n");
+    fprintf(stderr, "  --black-level <value>   Set the CDCI black reference level\n");
+    fprintf(stderr, "  --white-level <value>   Set the CDCI white reference level\n");
+    fprintf(stderr, "  --color-range <value>   Set the CDCI color range\n");
+    fprintf(stderr, "  --comp-max-ref <value>  Set the RGBA component maximum reference level\n");
+    fprintf(stderr, "  --comp-min-ref <value>  Set the RGBA component minimum reference level\n");
+    fprintf(stderr, "  --scan-dir <value>      Set the RGBA scanning direction\n");
+    fprintf(stderr, "  --display-primaries <value>    Set the mastering display primaries.\n");
+    fprintf(stderr, "                                 The <value> is an array of 6 unsigned integers separated by a ','.\n");
+    fprintf(stderr, "  --display-white-point <value>  Set the mastering display white point chromaticity.\n");
+    fprintf(stderr, "                                 The <value> is an array of 2 unsigned integers separated by a ','.\n");
+    fprintf(stderr, "  --display-max-luma <value>     Set the mastering display maximum luminance.\n");
+    fprintf(stderr, "  --display-min-luma <value>     Set the mastering display minimum luminance.\n");
     fprintf(stderr, "  --rdd36-opaque          Treat RDD-36 4444 or 4444 XQ as opaque by omitting the Alpha Sample Depth property\n");
+    fprintf(stderr, "  --active-width          Set the Active Width of the active area rectangle\n");
+    fprintf(stderr, "  --active-height         Set the Active Height of the active area rectangle\n");
+    fprintf(stderr, "  --active-x-offset       Set the Active X Offset of the active area rectangle\n");
+    fprintf(stderr, "  --active-y-offset       Set the Active Y Offset of the active area rectangle\n");
     fprintf(stderr, "  -s <bps>                Audio sampling rate numerator for raw pcm. Default %d\n", DEFAULT_SAMPLING_RATE.numerator);
     fprintf(stderr, "  -q <bps>                Audio quantization bits per sample for raw pcm. Either 16 or 24. Default 16\n");
     fprintf(stderr, "  --audio-chan <count>    Audio channel count for raw pcm. Default 1\n");
@@ -567,6 +643,7 @@ static void usage(const char *cmd)
     fprintf(stderr, "                            - 's', which means the first 16 bytes, at file position 0 or --off byte offset, are taken to be the Key\n");
     fprintf(stderr, "                            - optional '0x' followed by 8 hexadecimal characters which represents the 4-byte track number part of a generic container essence Key\n");
     fprintf(stderr, "                            - 32 hexadecimal characters representing a 16-byte Key\n");
+    fprintf(stderr, "  --fill-pattern-gaps     Fill gaps in a numbered sequence pattern of raw files by repeating the contents of the file at the start of a gap\n");
     fprintf(stderr, "  --track-num <num>       Set the output track number. Default track number equals last track number of same picture/sound type + 1\n");
     fprintf(stderr, "                          For as11d10/d10 the track number must be > 0 and <= 8 because the AES-3 channel index equals track number - 1\n");
     fprintf(stderr, "  --avci-guess <i/p>      Guess interlaced ('i') or progressive ('p') AVC-Intra when using the --avci option with 1080p25/i50 or 1080p30/i60\n");
@@ -651,6 +728,12 @@ static void usage(const char *cmd)
     fprintf(stderr, "  --rdd36_422_hq <name>      Raw SMPTE RDD-36 (ProRes) 4:2:2 HQ profile input file\n");
     fprintf(stderr, "  --rdd36_4444 <name>        Raw SMPTE RDD-36 (ProRes) 4:4:4:4 profile input file\n");
     fprintf(stderr, "  --rdd36_4444_xq <name>     Raw SMPTE RDD-36 (ProRes) 4:4:4:4 XQ profile input file\n");
+    fprintf(stderr, "  --j2c_cdci <name|j2cpattern>  Raw JPEG 2000 (ISO/IEC 15444-1) codestream representing components (e.g. YCbCr) described by a MXF CDCI descriptor\n");
+    fprintf(stderr, "                                If a '%%' is in the value then it is assumed to be a <j2cpattern> for a sequence of files, each containing a single frame\n");
+    fprintf(stderr, "                                See Notes below for a detailed description of <j2cpattern>\n");
+    fprintf(stderr, "  --j2c_rgba <name|j2cpattern>  Raw JPEG 2000 (ISO/IEC 15444-1) codestream representing components (e.g. RGB) described by a MXF RGBA descriptor\n");
+    fprintf(stderr, "                                If a '%%' is in the value then it is assumed to be a <j2cpattern> for a sequence of files, each containing a single frame\n");
+    fprintf(stderr, "                                See Notes below for a detailed description of <j2cpattern>\n");
     fprintf(stderr, "  --vc2 <name>            Raw VC2 input file\n");
     fprintf(stderr, "  --vc3 <name>            Raw VC3/DNxHD input file\n");
     fprintf(stderr, "  --vc3_1080p_1235 <name> Raw VC3/DNxHD 1920x1080p 220/185/175 Mbps 10bit input file\n");
@@ -671,11 +754,17 @@ static void usage(const char *cmd)
     fprintf(stderr, "  --wave <name>           Wave PCM audio input file\n");
     fprintf(stderr, "  --anc <name>            Raw ST 436 Ancillary data. Currently requires the --anc-const option\n");
     fprintf(stderr, "  --vbi <name>            Raw ST 436 Vertical Blanking Interval data. Currently requires the --vbi-const option\n");
+    fprintf(stderr, "  --tt <manifest>         Manifest file containing Timed Text metadata\n");
     fprintf(stderr, "\n\n");
     fprintf(stderr, "Notes:\n");
     fprintf(stderr, " - <umid> format is 64 hexadecimal characters and any '.' and '-' characters are ignored\n");
     fprintf(stderr, " - <uuid> format is 32 hexadecimal characters and any '.' and '-' characters are ignored\n");
     fprintf(stderr, " - <tstamp> format is YYYY-MM-DDThh:mm:ss:qm where qm is in units of 1/250th second\n");
+    fprintf(stderr, " - <j2cpattern>: Each file name must include an integer frame number in the sequence.\n");
+    fprintf(stderr, "                 <j2cpattern> is a file path that must contain a single '%%d' where the frame number appears in the name.\n");
+    fprintf(stderr, "                 <j2cpattern> must not contain any other '%%' characters.\n");
+    fprintf(stderr, "                 If --fill-pattern-gaps option is used then gaps in frame numbers are filled by repeating the previous frame.\n");
+    fprintf(stderr, "                 Example: 'inputs/frame_%%d.j2c' for input files `inputs/frame_00001.j2c' etc..\n");
 }
 
 int main(int argc, const char** argv)
@@ -686,6 +775,7 @@ int main(int argc, const char** argv)
     ClipSubType clip_sub_type = NO_CLIP_SUB_TYPE;
     bool ard_zdf_hdf_profile = false;
     bool aes3 = false;
+    bool kag_size_512 = false;
     AS10Shim as10_shim = AS10_UNKNOWN_SHIM;
     const char *mpeg_descr_defaults_name = 0;
     bool mpeg_descr_frame_checks = true;
@@ -731,6 +821,7 @@ int main(int argc, const char** argv)
     uint8_t d10_mute_sound_flags = 0;
     uint8_t d10_invalid_sound_flags = 0;
     const char *originator = DEFAULT_BEXT_ORIGINATOR;
+    AvidUMIDType avid_umid_type = AAFSDK_UMID_TYPE;
     UMID mp_uid;
     bool mp_uid_set = false;
     Timestamp mp_created;
@@ -771,9 +862,13 @@ int main(int argc, const char** argv)
     bool use_avc_subdesc = false;
     UL audio_layout_mode_label = g_Null_UL;
     BMX_OPT_PROP_DECL_DEF(uint32_t, head_fill, 0);
+    mxfThreeColorPrimaries three_color_primaries;
+    mxfColorPrimary color_primary;
+    bool real_essence_regtest = false;
     int value, num, den;
     unsigned int uvalue;
     int64_t i64value;
+    bool msvc_block_limit;
     int cmdln_index;
 
     memset(&next_embed_xml, 0, sizeof(next_embed_xml));
@@ -1263,6 +1358,10 @@ int main(int argc, const char** argv)
         {
             aes3 = true;
         }
+        else if (strcmp(argv[cmdln_index], "--kag-size-512") == 0)
+        {
+            kag_size_512 = true;
+        }
         else if (strcmp(argv[cmdln_index], "--xml-scheme-id") == 0)
         {
             if (cmdln_index + 1 >= argc)
@@ -1445,6 +1544,22 @@ int main(int argc, const char** argv)
             }
             locators.push_back(locator);
             cmdln_index += 3;
+        }
+        else if (strcmp(argv[cmdln_index], "--umid-type") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (!parse_avid_umid_type(argv[cmdln_index + 1], &avid_umid_type))
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            cmdln_index++;
         }
         else if (strcmp(argv[cmdln_index], "--mp-uid") == 0)
         {
@@ -1655,6 +1770,11 @@ int main(int argc, const char** argv)
             }
             cmdln_index++;
         }
+        else if (strcmp(argv[cmdln_index], "--regtest-real") == 0)
+        {
+            BMX_REGRESSION_TEST = true;
+            real_essence_regtest = true;
+        }
         else
         {
             break;
@@ -1664,6 +1784,8 @@ int main(int argc, const char** argv)
     init_input(&input);
     for (; cmdln_index < argc; cmdln_index++)
     {
+        msvc_block_limit = false;
+
         if (strcmp(argv[cmdln_index], "-a") == 0)
         {
             if (cmdln_index + 1 >= argc)
@@ -1914,9 +2036,196 @@ int main(int argc, const char** argv)
             cmdln_index++;
             continue; // skip input reset at the end
         }
+        else if (strcmp(argv[cmdln_index], "--comp-max-ref") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.comp_max_ref, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--comp-min-ref") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.comp_min_ref, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--scan-dir") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.scan_dir, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--display-primaries") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (!parse_three_color_primaries(argv[cmdln_index + 1], &three_color_primaries)) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.display_primaries, three_color_primaries);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--display-white-point") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (!parse_color_primary(argv[cmdln_index + 1], &color_primary)) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.display_white_point, color_primary);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--display-max-luma") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.display_max_luma, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--display-min-luma") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.display_min_luma, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
         else if (strcmp(argv[cmdln_index], "--rdd36-opaque") == 0)
         {
             BMX_OPT_PROP_SET(input.rdd36_opaque, true);
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--active-width") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.active_width, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--active-height") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.active_height, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--active-x-offset") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.active_x_offset, uvalue);
+            cmdln_index++;
+            continue; // skip input reset at the end
+        }
+        else if (strcmp(argv[cmdln_index], "--active-y-offset") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for option '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            if (sscanf(argv[cmdln_index + 1], "%u", &uvalue) != 1) {
+                usage(argv[0]);
+                fprintf(stderr, "Invalid value '%s' for option '%s'\n", argv[cmdln_index + 1], argv[cmdln_index]);
+                return 1;
+            }
+            BMX_OPT_PROP_SET(input.active_y_offset, uvalue);
+            cmdln_index++;
             continue; // skip input reset at the end
         }
         else if (strcmp(argv[cmdln_index], "-s") == 0)
@@ -2122,6 +2431,11 @@ int main(int argc, const char** argv)
             cmdln_index++;
             continue; // skip input reset at the end
         }
+        else if (strcmp(argv[cmdln_index], "--fill-pattern-gaps") == 0)
+        {
+            input.fill_pattern_gaps = true;
+            continue; // skip input reset at the end
+        }
         else if (strcmp(argv[cmdln_index], "--track-num") == 0)
         {
             if (cmdln_index + 1 >= argc)
@@ -2216,6 +2530,17 @@ int main(int argc, const char** argv)
             }
             cmdln_index++;
             continue; // skip input reset at the end
+        }
+        else
+        {
+            // break if/else here to workaround Visual C++ error
+            // C1061: compiler limit : blocks nested too deeply
+            msvc_block_limit = true;
+        }
+
+        if (!msvc_block_limit)
+        {
+            // do nothing - wasn't the Visual C++ C1061 workaround
         }
         else if (strcmp(argv[cmdln_index], "--dv") == 0)
         {
@@ -3045,6 +3370,38 @@ int main(int argc, const char** argv)
             inputs.push_back(input);
             cmdln_index++;
         }
+        else if (strcmp(argv[cmdln_index], "--j2c_cdci") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for input '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            input.essence_type = JPEG2000_CDCI;
+            if (strchr(argv[cmdln_index + 1], '%') != 0)
+                input.file_pattern = argv[cmdln_index + 1];
+            else
+                input.filename = argv[cmdln_index + 1];
+            inputs.push_back(input);
+            cmdln_index++;
+        }
+        else if (strcmp(argv[cmdln_index], "--j2c_rgba") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for input '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            input.essence_type = JPEG2000_RGBA;
+            if (strchr(argv[cmdln_index + 1], '%') != 0)
+                input.file_pattern = argv[cmdln_index + 1];
+            else
+                input.filename = argv[cmdln_index + 1];
+            inputs.push_back(input);
+            cmdln_index++;
+        }
         else if (strcmp(argv[cmdln_index], "--vc2") == 0)
         {
             if (cmdln_index + 1 >= argc)
@@ -3332,6 +3689,19 @@ int main(int argc, const char** argv)
             have_vbi = true;
             cmdln_index++;
         }
+        else if (strcmp(argv[cmdln_index], "--tt") == 0)
+        {
+            if (cmdln_index + 1 >= argc)
+            {
+                usage(argv[0]);
+                fprintf(stderr, "Missing argument for input '%s'\n", argv[cmdln_index]);
+                return 1;
+            }
+            input.essence_type = TIMED_TEXT;
+            input.filename = argv[cmdln_index + 1];
+            inputs.push_back(input);
+            cmdln_index++;
+        }
         else
         {
             break;
@@ -3395,6 +3765,8 @@ int main(int argc, const char** argv)
     if (BMX_REGRESSION_TEST) {
         mxf_set_regtest_funcs();
         mxf_avid_set_regtest_funcs();
+    } else {
+        set_avid_umid_type(avid_umid_type);
     }
 
     if (do_print_version)
@@ -3488,9 +3860,9 @@ int main(int argc, const char** argv)
                 continue;
             }
 
-
             // TODO: more parse friendly regression test essence data
             if (BMX_REGRESSION_TEST &&
+                !real_essence_regtest &&
                 input->essence_type != RDD36_422 &&
                 input->essence_type != RDD36_4444)
             {
@@ -3580,8 +3952,15 @@ int main(int argc, const char** argv)
                 if (input->raw_reader->GetNumSamples() != 0) {
                     rdd36_parser->ParseFrameInfo(input->raw_reader->GetSampleData(), input->raw_reader->GetSampleDataSize());
 
-                    if (!frame_rate_set && rdd36_parser->HaveFrameRate())
-                        frame_rate = rdd36_parser->GetFrameRate();
+                    if (!frame_rate_set) {
+                        if (rdd36_parser->HaveFrameRate()) {
+                            frame_rate = rdd36_parser->GetFrameRate();
+                        } else {
+                            log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                     essence_type_to_string(input->essence_type),
+                                     frame_rate.numerator, frame_rate.denominator);
+                        }
+                    }
 
                     // other parameters derived from the bitstream metadata will be set in the RDD36MXFDescriptorHelper
                 }
@@ -3854,8 +4233,15 @@ int main(int argc, const char** argv)
                     throw false;
                 }
 
-                if (!frame_rate_set && avc_parser->HaveFrameRate())
-                    frame_rate = avc_parser->GetFrameRate();
+                if (!frame_rate_set) {
+                    if (avc_parser->HaveFrameRate()) {
+                        frame_rate = avc_parser->GetFrameRate();
+                    } else {
+                        log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                 essence_type_to_string(input->essence_type),
+                                 frame_rate.numerator, frame_rate.denominator);
+                    }
+                }
 
                 // re-open the raw reader to use the special AVCI reader
                 delete input->raw_reader;
@@ -3896,8 +4282,15 @@ int main(int argc, const char** argv)
                     }
                     input->essence_type = avc_parser->GetEssenceType();
 
-                    if (!frame_rate_set && avc_parser->HaveFrameRate())
-                        frame_rate = avc_parser->GetFrameRate();
+                    if (!frame_rate_set) {
+                        if (avc_parser->HaveFrameRate()) {
+                            frame_rate = avc_parser->GetFrameRate();
+                        } else {
+                            log_warn("No frame rate set for '%s'; using default frame rate %d/%d\n",
+                                    essence_type_to_string(input->essence_type),
+                                    frame_rate.numerator, frame_rate.denominator);
+                        }
+                    }
 
                     // TODO: other parameters?
                 }
@@ -3955,6 +4348,22 @@ int main(int argc, const char** argv)
             }
         }
 
+        for (i = 0; i < inputs.size(); i++) {
+            RawInput *input = &inputs[i];
+            if (input->disabled || input->essence_type != TIMED_TEXT)
+                continue;
+
+            if (!input->timed_text_manifest.Parse(input->filename, start_timecode, frame_rate)) {
+                log_error("Failed to parse timed text manifest\n");
+                throw false;
+            }
+            if (!input->timed_text_manifest.CheckCanReadTTFile()) {
+                log_error("Timed text file '%s' referenced by manifest can't be opened for reading\n",
+                          input->timed_text_manifest.GetTTFilename().c_str());
+                throw false;
+            }
+        }
+
 
         // check support for essence type and frame/sampling rates
 
@@ -3981,6 +4390,22 @@ int main(int argc, const char** argv)
         }
 
 
+        // check whether all tracks are timed text and therefore that duration must be set
+
+        bool have_samples_to_write = false;
+        for (i = 0; i < inputs.size(); i++) {
+            RawInput *input = &inputs[i];
+            if (!input->disabled && input->essence_type != TIMED_TEXT) {
+                have_samples_to_write = true;
+                break;
+            }
+        }
+        if (!have_samples_to_write && duration < 0) {
+            log_error("--dur option is required if all tracks are timed text\n");
+            throw false;
+        }
+
+
         // create clip
 
         int flavour = 0;
@@ -3997,6 +4422,8 @@ int main(int argc, const char** argv)
                     flavour |= OP1A_MP_TRACK_NUMBER_FLAVOUR;
                 if (aes3)
                     flavour |= OP1A_AES_FLAVOUR;
+                if (kag_size_512)
+                    flavour |= OP1A_512_KAG_FLAVOUR;
                 if (min_part)
                     flavour |= OP1A_MIN_PARTITIONS_FLAVOUR;
                 else if (body_part)
@@ -4111,6 +4538,10 @@ int main(int argc, const char** argv)
                 op1a_clip->SetPartitionInterval(partition_interval);
             op1a_clip->SetOutputStartOffset(output_start_offset);
             op1a_clip->SetOutputEndOffset(- output_end_offset);
+
+            if (!have_samples_to_write) {
+                op1a_clip->SetInputDuration(duration);
+            }
         } else if (clip_type == CW_AVID_CLIP_TYPE) {
             AvidClip *avid_clip = clip->GetAvidClip();
 
@@ -4574,6 +5005,12 @@ int main(int argc, const char** argv)
                         clip_track->SetAFD(input->afd);
                     clip_track->SetComponentDepth(input->component_depth);
                     break;
+                case JPEG2000_CDCI:
+                case JPEG2000_RGBA:
+                    clip_track->SetAspectRatio(input->aspect_ratio);
+                    if (BMX_OPT_PROP_IS_SET(input->afd))
+                        clip_track->SetAFD(input->afd);
+                    break;
                 case VC2:
                     clip_track->SetAspectRatio(input->aspect_ratio);
                     if (BMX_OPT_PROP_IS_SET(input->afd))
@@ -4619,6 +5056,9 @@ int main(int argc, const char** argv)
                 case VBI_DATA:
                     clip_track->SetConstantDataSize(input->vbi_const_size);
                     break;
+                case TIMED_TEXT:
+                    clip_track->SetTimedTextSource(&input->timed_text_manifest);
+                    break;
                 default:
                     BMX_ASSERT(false);
             }
@@ -4646,6 +5086,28 @@ int main(int argc, const char** argv)
                     pict_helper->SetWhiteRefLevel(input->white_ref_level);
                 if (BMX_OPT_PROP_IS_SET(input->color_range))
                     pict_helper->SetColorRange(input->color_range);
+                if (BMX_OPT_PROP_IS_SET(input->comp_max_ref))
+                    pict_helper->SetComponentMaxRef(input->comp_max_ref);
+                if (BMX_OPT_PROP_IS_SET(input->comp_min_ref))
+                    pict_helper->SetComponentMinRef(input->comp_min_ref);
+                if (BMX_OPT_PROP_IS_SET(input->scan_dir))
+                    pict_helper->SetScanningDirection(input->scan_dir);
+                if (BMX_OPT_PROP_IS_SET(input->display_primaries))
+                    pict_helper->SetMasteringDisplayPrimaries(input->display_primaries);
+                if (BMX_OPT_PROP_IS_SET(input->display_white_point))
+                    pict_helper->SetMasteringDisplayWhitePointChromaticity(input->display_white_point);
+                if (BMX_OPT_PROP_IS_SET(input->display_max_luma))
+                    pict_helper->SetMasteringDisplayMaximumLuminance(input->display_max_luma);
+                if (BMX_OPT_PROP_IS_SET(input->display_min_luma))
+                    pict_helper->SetMasteringDisplayMinimumLuminance(input->display_min_luma);
+                if (BMX_OPT_PROP_IS_SET(input->active_width))
+                    pict_helper->SetActiveWidth(input->active_width);
+                if (BMX_OPT_PROP_IS_SET(input->active_height))
+                    pict_helper->SetActiveHeight(input->active_height);
+                if (BMX_OPT_PROP_IS_SET(input->active_x_offset))
+                    pict_helper->SetActiveXOffset(input->active_x_offset);
+                if (BMX_OPT_PROP_IS_SET(input->active_y_offset))
+                    pict_helper->SetActiveYOffset(input->active_y_offset);
 
                 RDD36MXFDescriptorHelper *rdd36_helper = dynamic_cast<RDD36MXFDescriptorHelper*>(pict_helper);
                 if (rdd36_helper) {
@@ -4769,6 +5231,13 @@ int main(int argc, const char** argv)
                     input->raw_reader->SetEssenceParser(new RDD36EssenceParser());
                     input->raw_reader->SetCheckMaxSampleSize(100000000);
                     break;
+                case JPEG2000_CDCI:
+                case JPEG2000_RGBA:
+                    input->sample_sequence[0] = 1;
+                    input->sample_sequence_size = 1;
+                    input->raw_reader->SetEssenceParser(new J2CEssenceParser());
+                    input->raw_reader->SetCheckMaxSampleSize(100000000);
+                    break;
                 case VC2:
                     input->sample_sequence[0] = 1;
                     input->sample_sequence_size = 1;
@@ -4809,6 +5278,8 @@ int main(int argc, const char** argv)
                     input->sample_sequence[0] = 1;
                     input->sample_sequence_size = 1;
                     input->raw_reader->SetFixedSampleSize(input->vbi_const_size);
+                    break;
+                case TIMED_TEXT:
                     break;
                 default:
                     BMX_ASSERT(false);
@@ -4873,7 +5344,7 @@ int main(int argc, const char** argv)
         uint32_t max_samples_per_read = 1;
         for (i = 0; i < inputs.size(); i++) {
             RawInput *input = &inputs[i];
-            if (!input->disabled) {
+            if (!input->disabled && input->essence_type != TIMED_TEXT) {
                 if (input->essence_type == WAVE_PCM) {
                     if (input->sample_sequence_size == 1 && input->sample_sequence[0] == 1)
                         have_sound_sample_sequence = false;
@@ -4901,7 +5372,7 @@ int main(int argc, const char** argv)
         // write samples
         bmx::ByteArray pcm_buffer;
         int64_t total_read = 0;
-        while (duration < 0 || total_read < duration) {
+        while (have_samples_to_write && (duration < 0 || total_read < duration)) {
             // break if reached end of partial file regression test
             if (regtest_end >= 0 && total_read >= regtest_end)
                 break;
@@ -4911,7 +5382,7 @@ int main(int argc, const char** argv)
             uint32_t num_samples;
             for (i = 0; i < inputs.size(); i++) {
                 RawInput *input = &inputs[i];
-                if (!input->disabled) {
+                if (!input->disabled && input->essence_type != TIMED_TEXT) {
                     num_samples = read_samples(input, max_samples_per_read);
                     if (num_samples < min_num_samples) {
                         min_num_samples = num_samples;
@@ -4930,6 +5401,9 @@ int main(int argc, const char** argv)
             for (i = 0; i < input_tracks.size(); i++) {
                 RawInputTrack *input_track = input_tracks[i];
                 RawInput *input = input_track->GetRawInput();
+                if (input->essence_type == TIMED_TEXT) {
+                    continue;
+                }
 
                 size_t k;
                 for (k = 0; k < input_track->GetOutputTrackCount(); k++) {
@@ -5060,4 +5534,3 @@ int main(int argc, const char** argv)
 
     return cmd_result;
 }
-

@@ -58,6 +58,7 @@
 #define OP1A_MP_TRACK_NUMBER_FLAVOUR        0x0100      // set the Material Package Track Number
 #define OP1A_AS11_FLAVOUR                   0x0200
 #define OP1A_AES_FLAVOUR                    0x0400
+#define OP1A_SYSTEM_ITEM_FLAVOUR            0x0800      // add system item
 
 
 
@@ -70,6 +71,7 @@ class OP1AFile
 public:
     friend class OP1ATrack;
     friend class OP1AMPEG2LGTrack;
+    friend class OP1ATimedTextTrack;
 
 public:
     OP1AFile(int flavour, mxfpp::File *mxf_file, mxfRational frame_rate);
@@ -90,6 +92,7 @@ public:
     void SetClipWrapped(bool enable);                                   // default false (frame wrapped)
     void SetAddSystemItem(bool enable);                                 // default false, no system item
     void SetRepeatIndexTable(bool enable);                              // default false. Repeat index table in Footer if true
+    void ForceWriteCBEDuration0(bool enable);                           // force duration=0 for CBE index table
 
 public:
     void SetOutputStartOffset(int64_t offset);
@@ -131,11 +134,14 @@ public:
     UniqueIdHelper* GetTrackIdHelper()  { return &mTrackIdHelper; }
     UniqueIdHelper* GetStreamIdHelper() { return &mStreamIdHelper; }
 
+    uint32_t CreateStreamId();
+
 private:
     OP1AIndexTable* GetIndexTable() const { return mIndexTable; }
     OP1AContentPackageManager* GetContentPackageManager() const { return mCPManager; }
 
     void CreateHeaderMetadata();
+    mxfpp::SourcePackage* CreateFileSourcePackage(UMID package_uid, int64_t track_duration, int64_t track_origin);
     void CreateFile();
 
     void UpdatePackageMetadata();
@@ -167,6 +173,7 @@ private:
     mxfUMID mMaterialPackageUID;
     mxfUMID mFileSourcePackageUID;
     bool mFrameWrapped;
+    mxfUL mOPLabel;
 
     int64_t mOutputStartOffset;
     int64_t mOutputEndOffset;
@@ -177,6 +184,7 @@ private:
     bool mHaveANCTrack;
     bool mHaveVBITrack;
     std::vector<OP1AXMLTrack*> mXMLTracks;
+    size_t mTimedTextTrackCount;
 
     mxfpp::DataModel *mDataModel;
     mxfpp::HeaderMetadata *mHeaderMetadata;

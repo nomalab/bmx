@@ -47,6 +47,7 @@
 #include <bmx/mxf_helper/MJPEGMXFDescriptorHelper.h>
 #include <bmx/mxf_helper/VC2MXFDescriptorHelper.h>
 #include <bmx/mxf_helper/RDD36MXFDescriptorHelper.h>
+#include <bmx/mxf_helper/JPEG2000MXFDescriptorHelper.h>
 #include <bmx/MXFUtils.h>
 #include <bmx/BMXTypes.h>
 #include <bmx/BMXException.h>
@@ -91,6 +92,9 @@ EssenceType PictureMXFDescriptorHelper::IsSupported(FileDescriptor *file_descrip
     essence_type = RDD36MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label);
     if (essence_type)
         return essence_type;
+    essence_type = JPEG2000MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label);
+    if (essence_type)
+        return essence_type;
     essence_type = VC2MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label);
     if (essence_type)
         return essence_type;
@@ -124,6 +128,8 @@ PictureMXFDescriptorHelper* PictureMXFDescriptorHelper::Create(FileDescriptor *f
         helper = new MPEG2LGMXFDescriptorHelper();
     else if (RDD36MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label))
         helper = new RDD36MXFDescriptorHelper();
+    else if (JPEG2000MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label))
+        helper = new JPEG2000MXFDescriptorHelper();
     else if (VC2MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label))
         helper = new VC2MXFDescriptorHelper();
     else if (VC3MXFDescriptorHelper::IsSupported(file_descriptor, alternative_ec_label))
@@ -148,6 +154,7 @@ bool PictureMXFDescriptorHelper::IsSupported(EssenceType essence_type)
            UncRGBAMXFDescriptorHelper::IsSupported(essence_type) ||
            MPEG2LGMXFDescriptorHelper::IsSupported(essence_type) ||
            RDD36MXFDescriptorHelper::IsSupported(essence_type) ||
+           JPEG2000MXFDescriptorHelper::IsSupported(essence_type) ||
            VC2MXFDescriptorHelper::IsSupported(essence_type) ||
            VC3MXFDescriptorHelper::IsSupported(essence_type) ||
            MJPEGMXFDescriptorHelper::IsSupported(essence_type);
@@ -174,6 +181,8 @@ MXFDescriptorHelper* PictureMXFDescriptorHelper::Create(EssenceType essence_type
         helper = new MPEG2LGMXFDescriptorHelper();
     else if (RDD36MXFDescriptorHelper::IsSupported(essence_type))
         helper = new RDD36MXFDescriptorHelper();
+    else if (JPEG2000MXFDescriptorHelper::IsSupported(essence_type))
+        helper = new JPEG2000MXFDescriptorHelper();
     else if (VC2MXFDescriptorHelper::IsSupported(essence_type))
         helper = new VC2MXFDescriptorHelper();
     else if (VC3MXFDescriptorHelper::IsSupported(essence_type))
@@ -205,9 +214,20 @@ PictureMXFDescriptorHelper::PictureMXFDescriptorHelper()
     BMX_OPT_PROP_DEFAULT(mBlackRefLevel, 0);
     BMX_OPT_PROP_DEFAULT(mWhiteRefLevel, 0);
     BMX_OPT_PROP_DEFAULT(mColorRange, 0);
+    BMX_OPT_PROP_DEFAULT(mComponentMaxRef, 0);
+    BMX_OPT_PROP_DEFAULT(mComponentMinRef, 0);
+    BMX_OPT_PROP_DEFAULT(mScanningDirection, 0);
     BMX_OPT_PROP_DEFAULT(mTransferCh, g_Null_UL);
     BMX_OPT_PROP_DEFAULT(mCodingEquations, g_Null_UL);
     BMX_OPT_PROP_DEFAULT(mColorPrimaries, g_Null_UL);
+    BMX_OPT_PROP_DEFAULT(mMasteringDisplayPrimaries, g_Null_Three_Color_Primaries);
+    BMX_OPT_PROP_DEFAULT(mMasteringDisplayWhitePointChromaticity, g_Null_Color_Primary);
+    BMX_OPT_PROP_DEFAULT(mMasteringDisplayMaximumLuminance, 0);
+    BMX_OPT_PROP_DEFAULT(mMasteringDisplayMinimumLuminance, 0);
+    BMX_OPT_PROP_DEFAULT(mActiveWidth, 0);
+    BMX_OPT_PROP_DEFAULT(mActiveHeight, 0);
+    BMX_OPT_PROP_DEFAULT(mActiveXOffset, 0);
+    BMX_OPT_PROP_DEFAULT(mActiveYOffset, 0);
 }
 
 PictureMXFDescriptorHelper::~PictureMXFDescriptorHelper()
@@ -222,6 +242,7 @@ void PictureMXFDescriptorHelper::Initialize(FileDescriptor *file_descriptor, uin
     GenericPictureEssenceDescriptor *picture_descriptor = dynamic_cast<GenericPictureEssenceDescriptor*>(file_descriptor);
     BMX_ASSERT(picture_descriptor);
     CDCIEssenceDescriptor *cdci_descriptor = dynamic_cast<CDCIEssenceDescriptor*>(picture_descriptor);
+    RGBAEssenceDescriptor *rgba_descriptor = dynamic_cast<RGBAEssenceDescriptor*>(picture_descriptor);
 
     if (picture_descriptor->haveAspectRatio())
         BMX_OPT_PROP_SET(mAspectRatio, picture_descriptor->getAspectRatio());
@@ -251,6 +272,25 @@ void PictureMXFDescriptorHelper::Initialize(FileDescriptor *file_descriptor, uin
         BMX_OPT_PROP_SET(mCodingEquations, picture_descriptor->getCodingEquations());
     if (picture_descriptor->haveColorPrimaries())
         BMX_OPT_PROP_SET(mColorPrimaries, picture_descriptor->getColorPrimaries());
+
+    if (picture_descriptor->haveMasteringDisplayPrimaries())
+        BMX_OPT_PROP_SET(mMasteringDisplayPrimaries, picture_descriptor->getMasteringDisplayPrimaries());
+    if (picture_descriptor->haveMasteringDisplayWhitePointChromaticity())
+        BMX_OPT_PROP_SET(mMasteringDisplayWhitePointChromaticity, picture_descriptor->getMasteringDisplayWhitePointChromaticity());
+    if (picture_descriptor->haveMasteringDisplayMaximumLuminance())
+        BMX_OPT_PROP_SET(mMasteringDisplayMaximumLuminance, picture_descriptor->getMasteringDisplayMaximumLuminance());
+    if (picture_descriptor->haveMasteringDisplayMinimumLuminance())
+        BMX_OPT_PROP_SET(mMasteringDisplayMinimumLuminance, picture_descriptor->getMasteringDisplayMinimumLuminance());
+
+    if (picture_descriptor->haveActiveWidth())
+        BMX_OPT_PROP_SET(mActiveWidth, picture_descriptor->getActiveWidth());
+    if (picture_descriptor->haveActiveHeight())
+        BMX_OPT_PROP_SET(mActiveHeight, picture_descriptor->getActiveHeight());
+    if (picture_descriptor->haveActiveXOffset())
+        BMX_OPT_PROP_SET(mActiveXOffset, picture_descriptor->getActiveXOffset());
+    if (picture_descriptor->haveActiveYOffset())
+        BMX_OPT_PROP_SET(mActiveYOffset, picture_descriptor->getActiveYOffset());
+
     if (cdci_descriptor) {
         if (cdci_descriptor->haveColorSiting())
             BMX_OPT_PROP_SET(mColorSiting, cdci_descriptor->getColorSiting());
@@ -260,6 +300,14 @@ void PictureMXFDescriptorHelper::Initialize(FileDescriptor *file_descriptor, uin
             BMX_OPT_PROP_SET(mWhiteRefLevel, cdci_descriptor->getWhiteReflevel());
         if (cdci_descriptor->haveColorRange())
             BMX_OPT_PROP_SET(mColorRange, cdci_descriptor->getColorRange());
+    }
+    if (rgba_descriptor) {
+        if (rgba_descriptor->haveComponentMaxRef())
+            BMX_OPT_PROP_SET(mComponentMaxRef, rgba_descriptor->getComponentMaxRef());
+        if (rgba_descriptor->haveComponentMinRef())
+            BMX_OPT_PROP_SET(mComponentMinRef, rgba_descriptor->getComponentMinRef());
+        if (rgba_descriptor->haveScanningDirection())
+            BMX_OPT_PROP_SET(mScanningDirection, rgba_descriptor->getScanningDirection());
     }
 }
 
@@ -323,6 +371,61 @@ void PictureMXFDescriptorHelper::SetColorRange(uint32_t range)
     BMX_OPT_PROP_SET(mColorRange, range);
 }
 
+void PictureMXFDescriptorHelper::SetComponentMaxRef(uint32_t ref)
+{
+    BMX_OPT_PROP_SET(mComponentMaxRef, ref);
+}
+
+void PictureMXFDescriptorHelper::SetComponentMinRef(uint32_t ref)
+{
+    BMX_OPT_PROP_SET(mComponentMinRef, ref);
+}
+
+void PictureMXFDescriptorHelper::SetScanningDirection(uint8_t direction)
+{
+    BMX_OPT_PROP_SET(mScanningDirection, direction);
+}
+
+void PictureMXFDescriptorHelper::SetMasteringDisplayPrimaries(mxfThreeColorPrimaries primaries)
+{
+    BMX_OPT_PROP_SET(mMasteringDisplayPrimaries, primaries);
+}
+
+void PictureMXFDescriptorHelper::SetMasteringDisplayWhitePointChromaticity(mxfColorPrimary chroma)
+{
+    BMX_OPT_PROP_SET(mMasteringDisplayWhitePointChromaticity, chroma);
+}
+
+void PictureMXFDescriptorHelper::SetMasteringDisplayMaximumLuminance(uint32_t max_lum)
+{
+    BMX_OPT_PROP_SET(mMasteringDisplayMaximumLuminance, max_lum);
+}
+
+void PictureMXFDescriptorHelper::SetMasteringDisplayMinimumLuminance(uint32_t min_lum)
+{
+    BMX_OPT_PROP_SET(mMasteringDisplayMinimumLuminance, min_lum);
+}
+
+void PictureMXFDescriptorHelper::SetActiveWidth(uint32_t width)
+{
+    BMX_OPT_PROP_SET(mActiveWidth, width);
+}
+
+void PictureMXFDescriptorHelper::SetActiveHeight(uint32_t height)
+{
+    BMX_OPT_PROP_SET(mActiveHeight, height);
+}
+
+void PictureMXFDescriptorHelper::SetActiveXOffset(uint32_t offset)
+{
+    BMX_OPT_PROP_SET(mActiveXOffset, offset);
+}
+
+void PictureMXFDescriptorHelper::SetActiveYOffset(uint32_t offset)
+{
+    BMX_OPT_PROP_SET(mActiveYOffset, offset);
+}
+
 FileDescriptor* PictureMXFDescriptorHelper::CreateFileDescriptor(HeaderMetadata *header_metadata)
 {
     (void)header_metadata;
@@ -339,6 +442,7 @@ void PictureMXFDescriptorHelper::UpdateFileDescriptor()
     GenericPictureEssenceDescriptor *picture_descriptor = dynamic_cast<GenericPictureEssenceDescriptor*>(mFileDescriptor);
     BMX_ASSERT(picture_descriptor);
     CDCIEssenceDescriptor *cdci_descriptor = dynamic_cast<CDCIEssenceDescriptor*>(mFileDescriptor);
+    RGBAEssenceDescriptor *rgba_descriptor = dynamic_cast<RGBAEssenceDescriptor*>(mFileDescriptor);
 
     picture_descriptor->setAspectRatio(mAspectRatio);
     // TODO: what should be done if the source AFD value's aspect ratio != mAspectRatio?
@@ -356,6 +460,25 @@ void PictureMXFDescriptorHelper::UpdateFileDescriptor()
         SetCodingEquationsMod(mCodingEquations);
     if (BMX_OPT_PROP_IS_SET(mColorPrimaries))
         picture_descriptor->setColorPrimaries(mColorPrimaries);
+
+    if (BMX_OPT_PROP_IS_SET(mMasteringDisplayPrimaries))
+        picture_descriptor->setMasteringDisplayPrimaries(mMasteringDisplayPrimaries);
+    if (BMX_OPT_PROP_IS_SET(mMasteringDisplayWhitePointChromaticity))
+        picture_descriptor->setMasteringDisplayWhitePointChromaticity(mMasteringDisplayWhitePointChromaticity);
+    if (BMX_OPT_PROP_IS_SET(mMasteringDisplayMaximumLuminance))
+        picture_descriptor->setMasteringDisplayMaximumLuminance(mMasteringDisplayMaximumLuminance);
+    if (BMX_OPT_PROP_IS_SET(mMasteringDisplayMinimumLuminance))
+        picture_descriptor->setMasteringDisplayMinimumLuminance(mMasteringDisplayMinimumLuminance);
+
+    if (BMX_OPT_PROP_IS_SET(mActiveWidth))
+        picture_descriptor->setActiveWidth(mActiveWidth);
+    if (BMX_OPT_PROP_IS_SET(mActiveHeight))
+        picture_descriptor->setActiveHeight(mActiveHeight);
+    if (BMX_OPT_PROP_IS_SET(mActiveXOffset))
+        picture_descriptor->setActiveXOffset(mActiveXOffset);
+    if (BMX_OPT_PROP_IS_SET(mActiveYOffset))
+        picture_descriptor->setActiveYOffset(mActiveYOffset);
+
     if (cdci_descriptor) {
         if (BMX_OPT_PROP_IS_SET(mColorSiting))
             SetColorSitingMod(mColorSiting);
@@ -365,6 +488,14 @@ void PictureMXFDescriptorHelper::UpdateFileDescriptor()
             cdci_descriptor->setWhiteReflevel(mWhiteRefLevel);
         if (BMX_OPT_PROP_IS_SET(mColorRange))
             cdci_descriptor->setColorRange(mColorRange);
+    }
+    if (rgba_descriptor) {
+        if (BMX_OPT_PROP_IS_SET(mComponentMaxRef))
+            rgba_descriptor->setComponentMaxRef(mComponentMaxRef);
+        if (BMX_OPT_PROP_IS_SET(mComponentMinRef))
+            rgba_descriptor->setComponentMinRef(mComponentMinRef);
+        if (BMX_OPT_PROP_IS_SET(mScanningDirection))
+            rgba_descriptor->setScanningDirection(mScanningDirection);
     }
 
     if ((mFlavour & MXFDESC_AVID_FLAVOUR)) {

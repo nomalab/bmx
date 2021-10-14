@@ -309,6 +309,27 @@ void ClipWriter::ReserveHeaderMetadataSpace(uint32_t min_bytes)
     }
 }
 
+void ClipWriter::ForceWriteCBEDuration0(bool enable)
+{
+    switch (mType)
+    {
+        case CW_OP1A_CLIP_TYPE:
+            mOP1AClip->ForceWriteCBEDuration0(enable);
+            break;
+        case CW_D10_CLIP_TYPE:
+            mD10Clip->ForceWriteCBEDuration0(enable);
+            break;
+        case CW_RDD9_CLIP_TYPE:
+        case CW_AS02_CLIP_TYPE:
+        case CW_AVID_CLIP_TYPE:
+        case CW_WAVE_CLIP_TYPE:
+            break;
+        case CW_UNKNOWN_CLIP_TYPE:
+            BMX_ASSERT(false);
+            break;
+    }
+}
+
 ClipWriterTrack* ClipWriter::CreateTrack(EssenceType essence_type, string track_filename)
 {
     ClipWriterTrack *track = 0;
@@ -378,6 +399,9 @@ void ClipWriter::PrepareHeaderMetadata()
         case CW_OP1A_CLIP_TYPE:
             mOP1AClip->PrepareHeaderMetadata();
             break;
+        case CW_AVID_CLIP_TYPE:
+            mAvidClip->PrepareHeaderMetadata();
+            break;
         case CW_D10_CLIP_TYPE:
             mD10Clip->PrepareHeaderMetadata();
             break;
@@ -385,7 +409,6 @@ void ClipWriter::PrepareHeaderMetadata()
             mRDD9Clip->PrepareHeaderMetadata();
             break;
         case CW_AS02_CLIP_TYPE:
-        case CW_AVID_CLIP_TYPE:
         case CW_WAVE_CLIP_TYPE:
             break;
         case CW_UNKNOWN_CLIP_TYPE:

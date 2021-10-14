@@ -47,8 +47,10 @@ public:
     KLVEssenceSource(EssenceSource *child_source);
     KLVEssenceSource(EssenceSource *child_source, const mxfKey *key);
     KLVEssenceSource(EssenceSource *child_source, uint32_t track_num);
+    KLVEssenceSource(EssenceSource *child_source, const mxfKey *key, uint64_t start_value_len);
     virtual ~KLVEssenceSource();
 
+public:
     virtual uint32_t Read(unsigned char *data, uint32_t size);
     virtual bool SeekStart();
     virtual bool Skip(int64_t offset);

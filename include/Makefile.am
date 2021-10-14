@@ -2,6 +2,7 @@ library_includedir = $(includedir)/bmx-@BMX_MAJORMINOR@
 nobase_library_include_HEADERS = \
 	bmx/BitBuffer.h \
 	bmx/ByteArray.h \
+	bmx/ByteBuffer.h \
 	bmx/Checksum.h \
 	bmx/CRC32.h \
 	bmx/EssenceType.h \
@@ -28,12 +29,15 @@ nobase_library_include_HEADERS = \
 	bmx/apps/AS10Helper.h \
 	bmx/apps/AS11Helper.h \
 	bmx/apps/FrameworkHelper.h \
+	bmx/apps/PropertyFileParser.h \
+	bmx/apps/TimedTextManifestParser.h \
 	bmx/frame/DataBufferArray.h \
 	bmx/frame/Frame.h \
 	bmx/frame/FrameBuffer.h \
 	bmx/writer_helper/AVCWriterHelper.h \
 	bmx/writer_helper/AVCIWriterHelper.h \
 	bmx/writer_helper/D10WriterHelper.h \
+	bmx/writer_helper/JPEG2000WriterHelper.h \
 	bmx/writer_helper/MPEG2LGWriterHelper.h \
 	bmx/writer_helper/VC2WriterHelper.h \
 	bmx/writer_helper/XMLWriterHelper.h \
@@ -77,10 +81,12 @@ nobase_library_include_HEADERS = \
 	bmx/mxf_op1a/OP1ADVTrack.h \
 	bmx/mxf_op1a/OP1AFile.h \
 	bmx/mxf_op1a/OP1AIndexTable.h \
+	bmx/mxf_op1a/OP1AJPEG2000Track.h \
 	bmx/mxf_op1a/OP1AMPEG2LGTrack.h \
 	bmx/mxf_op1a/OP1APCMTrack.h \
 	bmx/mxf_op1a/OP1APictureTrack.h \
 	bmx/mxf_op1a/OP1ARDD36Track.h \
+	bmx/mxf_op1a/OP1ATimedTextTrack.h \
 	bmx/mxf_op1a/OP1ATrack.h \
 	bmx/mxf_op1a/OP1AUncTrack.h \
 	bmx/mxf_op1a/OP1AVBIDataTrack.h \
@@ -107,9 +113,11 @@ nobase_library_include_HEADERS = \
 	bmx/rdd9_mxf/RDD9XMLTrack.h \
 	bmx/avid_mxf/AvidAlphaTrack.h \
 	bmx/avid_mxf/AvidAVCITrack.h \
+	bmx/avid_mxf/AvidAVCTrack.h \
 	bmx/avid_mxf/AvidClip.h \
 	bmx/avid_mxf/AvidD10Track.h \
 	bmx/avid_mxf/AvidDVTrack.h \
+	bmx/avid_mxf/AvidIndexTable.h \
 	bmx/avid_mxf/AvidInfo.h \
 	bmx/avid_mxf/AvidMJPEGTrack.h \
 	bmx/avid_mxf/AvidMPEG2LGTrack.h \
@@ -124,11 +132,14 @@ nobase_library_include_HEADERS = \
 	bmx/essence_parser/SoundConversion.h \
 	bmx/essence_parser/AVCEssenceParser.h \
 	bmx/essence_parser/AVCIRawEssenceReader.h \
+	bmx/essence_parser/D10RawEssenceReader.h \
 	bmx/essence_parser/DVEssenceParser.h \
 	bmx/essence_parser/EssenceFilter.h \
 	bmx/essence_parser/EssenceParser.h \
 	bmx/essence_parser/EssenceSource.h \
 	bmx/essence_parser/FileEssenceSource.h \
+	bmx/essence_parser/FilePatternEssenceSource.h \
+	bmx/essence_parser/J2CEssenceParser.h \
 	bmx/essence_parser/KLVEssenceSource.h \
 	bmx/essence_parser/MJPEGEssenceParser.h \
 	bmx/essence_parser/MPEG2AspectRatioFilter.h \
@@ -143,6 +154,7 @@ nobase_library_include_HEADERS = \
 	bmx/mxf_helper/D10MXFDescriptorHelper.h \
 	bmx/mxf_helper/DataMXFDescriptorHelper.h \
 	bmx/mxf_helper/DVMXFDescriptorHelper.h \
+	bmx/mxf_helper/JPEG2000MXFDescriptorHelper.h \
 	bmx/mxf_helper/EssenceValidator.h \
 	bmx/mxf_helper/MJPEGMXFDescriptorHelper.h \
 	bmx/mxf_helper/MPEG2LGMXFDescriptorHelper.h \
@@ -153,6 +165,9 @@ nobase_library_include_HEADERS = \
 	bmx/mxf_helper/PictureMXFDescriptorHelper.h \
 	bmx/mxf_helper/RDD36MXFDescriptorHelper.h \
 	bmx/mxf_helper/SoundMXFDescriptorHelper.h \
+	bmx/mxf_helper/TimedTextManifest.h \
+	bmx/mxf_helper/TimedTextMXFDescriptorHelper.h \
+	bmx/mxf_helper/TimedTextMXFResourceProvider.h \
 	bmx/mxf_helper/UncCDCIMXFDescriptorHelper.h \
 	bmx/mxf_helper/UncRGBAMXFDescriptorHelper.h \
 	bmx/mxf_helper/UniqueIdHelper.h \
@@ -178,6 +193,7 @@ nobase_library_include_HEADERS = \
 	bmx/mxf_reader/MXFSequenceReader.h \
 	bmx/mxf_reader/MXFSequenceTrackReader.h \
 	bmx/mxf_reader/MXFTextObject.h \
+	bmx/mxf_reader/MXFTimedTextTrackReader.h \
 	bmx/mxf_reader/MXFTrackInfo.h \
 	bmx/mxf_reader/MXFTrackReader.h \
 	bmx/st436/RDD6BitBuffer.h \
@@ -190,4 +206,3 @@ nobase_library_include_HEADERS = \
 	bmx/wave/WaveTrackReader.h \
 	bmx/wave/WaveTrackWriter.h \
 	bmx/wave/WaveWriter.h
-

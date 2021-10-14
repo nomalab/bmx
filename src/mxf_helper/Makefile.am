@@ -7,6 +7,7 @@ libmxfhelper_la_SOURCES = \
 	D10MXFDescriptorHelper.cpp \
 	DataMXFDescriptorHelper.cpp \
 	DVMXFDescriptorHelper.cpp \
+	JPEG2000MXFDescriptorHelper.cpp \
 	MJPEGMXFDescriptorHelper.cpp \
 	MPEG2LGMXFDescriptorHelper.cpp \
 	MPEG2Validator.cpp \
@@ -16,6 +17,9 @@ libmxfhelper_la_SOURCES = \
 	PictureMXFDescriptorHelper.cpp \
 	RDD36MXFDescriptorHelper.cpp \
 	SoundMXFDescriptorHelper.cpp \
+	TimedTextManifest.cpp \
+	TimedTextMXFDescriptorHelper.cpp \
+	TimedTextMXFResourceProvider.cpp \
 	UncCDCIMXFDescriptorHelper.cpp \
 	UncRGBAMXFDescriptorHelper.cpp \
 	UniqueIdHelper.cpp \
@@ -25,4 +29,3 @@ libmxfhelper_la_SOURCES = \
 	WaveMXFDescriptorHelper.cpp
 
 libmxfhelper_la_CXXFLAGS = $(BMX_CFLAGS)
-

@@ -3,10 +3,13 @@ noinst_LTLIBRARIES = libessenceparser.la
 libessenceparser_la_SOURCES = \
 	AVCEssenceParser.cpp \
 	AVCIRawEssenceReader.cpp \
+	D10RawEssenceReader.cpp \
 	DVEssenceParser.cpp \
 	EssenceParserUtils.cpp \
 	EssenceParserUtils.h \
 	FileEssenceSource.cpp \
+	FilePatternEssenceSource.cpp \
+	J2CEssenceParser.cpp \
 	KLVEssenceSource.cpp \
 	MJPEGEssenceParser.cpp \
 	MPEG2AspectRatioFilter.cpp \
