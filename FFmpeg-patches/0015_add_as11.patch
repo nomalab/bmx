@@ -1,0 +1,50 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index 4af176c170..01932f5edd 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -35,6 +35,7 @@ static int bmx_writer_init(AVFormatContext *s)
+     config.smpte_st377m2004 = bmx->smpte_st377m2004;
+     config.timecode = bmx->timecode;
+     config.loose_checks = bmx->loose_checks;
++    config.as11_core = bmx->as11_dm_file;
+ 
+     bmx->internal_data = create_writer(s->url, &config);
+     bmx_set_timecode(bmx->internal_data, &config);
+@@ -256,6 +257,11 @@ static int bmx_write_packet(AVFormatContext *s, AVPacket *pkt)
+ static int bmx_write_footer(AVFormatContext *s)
+ {
+     BMXContext* bmx = (BMXContext*)s->priv_data;
++
++    if (bmx->clip_type == CLIP_TYPE_AS11_OP1A) {
++        bmx_set_descriptive_metadata(bmx->internal_data, bmx->as11_dm_file, bmx->dpp_dm_file, bmx->segmentation_file);
++    }
++
+     bmx_finish(bmx->internal_data);
+     ff_audio_interleave_close(s);
+     return 0;
+@@ -271,7 +277,11 @@ static const AVOption options[] = {
+     { "d10", "Wrap an D10 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_D10 }, 0, UINT_MAX, E, "clip_type"},
+     { "rdd9", "Wrap an RDD9 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_RDD9 }, 0, UINT_MAX, E, "clip_type"},
+     { "as10", "Wrap an AS10 RDD9 MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_AS10 }, 0, UINT_MAX, E, "clip_type"},
++    { "as11op1a", "Wrap an AS11 OP1A MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_AS11_OP1A }, 0, UINT_MAX, E, "clip_type"},
+     { "wave", "Wrap an WAVE MXF", 0, AV_OPT_TYPE_CONST, {.i64 = CLIP_TYPE_WAVE }, 0, UINT_MAX, E, "clip_type"},
++    { "bmx_segmentation_file", "Use as11 segmentation file", OFFSET(segmentation_file), AV_OPT_TYPE_STRING, { .str = NULL }, CHAR_MIN, CHAR_MAX, E},
++    { "bmx_as11_dm_file", "Use as11 core descriptive metadata file", OFFSET(as11_dm_file), AV_OPT_TYPE_STRING, { .str = NULL }, CHAR_MIN, CHAR_MAX, E},
++    { "bmx_dpp_dm_file", "Use as11 dpp descriptive metadata file", OFFSET(dpp_dm_file), AV_OPT_TYPE_STRING, { .str = NULL }, CHAR_MIN, CHAR_MAX, E},
+     { "bmx_shim_name", "Select shim name", OFFSET(shim_name), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "high_hd_2014", "Use Shim AS10 High HD 2014", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_HIGH_HD_2014 }, 0, UINT_MAX, E, "shim_name_type"},
+     { "cnn_hd_2012", "Use Shim AS10 CNN HD 2012", 0, AV_OPT_TYPE_CONST, {.i64 = AS10_CNN_HD_2012 }, 0, UINT_MAX, E, "shim_name_type"},
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+index 5151bebad0..f93c484a1a 100644
+--- a/libavformat/bmxenc.h
++++ b/libavformat/bmxenc.h
+@@ -25,6 +25,9 @@ typedef struct BMXContext {
+     int afd;
+     EssenceType video_essence;
+     int loose_checks;
++    const char* segmentation_file;
++    const char* as11_dm_file;
++    const char* dpp_dm_file;
+ } BMXContext;
+ 
+ typedef struct BMXStreamContext {
