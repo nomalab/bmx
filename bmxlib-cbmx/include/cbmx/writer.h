@@ -15,6 +15,7 @@ typedef enum {
     CLIP_TYPE_D10,
     CLIP_TYPE_RDD9,
     CLIP_TYPE_AS10,
+    CLIP_TYPE_AS11_OP1A,
     CLIP_TYPE_WAVE,
     CLIP_TYPE_NB
 } ClipType;
@@ -42,6 +43,7 @@ struct MxfConfig
     int smpte_st377m2004;
     const char* timecode;
     int loose_checks;
+    const char* as11_core;
 } MxfConfig;
 
 const char* get_as10_shim_name(ShimName shim);
@@ -58,6 +60,8 @@ void bmx_afd(void* bmx_writer, int track_index, int afd);
 void bmx_set_aspect_ratio(void* bmx_writer, int track_index, int display_aspect_ratio_num, int display_aspect_ratio_den);
 
 void bmx_add_shim_metadata(void* bmx_writer, ShimName shim_name);
+
+int bmx_set_descriptive_metadata(void* bmx_writer, const char* core_filename, const char* dpp_filename, const char* segmentation_filename);
 
 int bmx_init(void* bmx_writer);
 int bmx_finish(void* bmx_writer);

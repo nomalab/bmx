@@ -5,6 +5,7 @@
 #include <bmx/as10/AS10RDD9Validator.h>
 #include <bmx/clip_writer/ClipWriter.h>
 #include <bmx/apps/AS10Helper.h>
+#include <bmx/apps/AS11Helper.h>
 #include <bmx/mxf_op1a/OP1ATrack.h>
 #include <bmx/mxf_op1a/OP1AAVCITrack.h>
 #include <bmx/wave/WaveFileIO.h>
@@ -77,6 +78,37 @@ void* create_as10_writer(const char* filename, struct MxfConfig* config) {
 
     bmx::RDD9File *rdd9_clip = clip->GetRDD9Clip();
     rdd9_clip->SetValidator(new bmx::AS10RDD9Validator(as10_shim, config->loose_checks));
+
+    std::vector<bmx::ClipWriterTrack*> tracks;
+    BmxWriter* writer = new BmxWriter();
+    writer->clip = clip;
+    writer->tracks = tracks;
+    return (void*)writer;
+}
+
+
+void* create_as11_op1a_writer(const char* filename, struct MxfConfig* config) {
+    std::string output_name(filename);
+    bmx::Rational frame_rate;
+    bmx::DefaultMXFFileFactory file_factory;
+
+    frame_rate.numerator = config->frame_rate_num;
+    frame_rate.denominator = config->frame_rate_den;
+
+    int flavour = OP1A_AS11_FLAVOUR;
+    if (config->as11_core) {
+        flavour |= OP1A_MP_TRACK_NUMBER_FLAVOUR;
+    }
+    if(config->single_pass) {
+        flavour |= OP1A_SINGLE_PASS_WRITE_FLAVOUR;
+    }
+    if(config->kag_512) {
+        flavour |= OP1A_512_KAG_FLAVOUR;
+    }
+
+    bmx::ClipWriter* clip = bmx::ClipWriter::OpenNewOP1AClip(flavour, file_factory.OpenNew(output_name), frame_rate);
+
+    bmx::OP1AFile *op1a_clip = clip->GetOP1AClip();
 
     std::vector<bmx::ClipWriterTrack*> tracks;
     BmxWriter* writer = new BmxWriter();
@@ -229,6 +261,8 @@ void* create_writer(const char* filename, struct MxfConfig* config)
             return create_rdd9_writer(filename, config);
         case CLIP_TYPE_AS10:
             return create_as10_writer(filename, config);
+        case CLIP_TYPE_AS11_OP1A:
+            return create_as11_op1a_writer(filename, config);
         case CLIP_TYPE_WAVE:
             return create_wave_writer(filename, config);
         default: return NULL;
@@ -245,6 +279,32 @@ void bmx_add_shim_metadata(void* bmx_writer, ShimName shim_name)
     as10_helper.AddMetadata(writer->clip);
     as10_helper.Complete();
 }
+
+int bmx_set_descriptive_metadata(void* bmx_writer, const char* core_filename, const char* dpp_filename, const char* segmentation_filename)
+{
+    bmx::AS11Helper as11_helper;
+    BmxWriter* writer = (BmxWriter*)bmx_writer;
+    bmx::Rational frame_rate = writer->clip->GetFrameRate();
+
+    if (core_filename != NULL && !as11_helper.ParseFrameworkFile("as11", core_filename)) {
+        std::cerr << "BMX AS-11 ERROR : UNABLE TO PARSE CORE FILE " << core_filename << std::endl;
+        return -1;
+    }
+    if (dpp_filename != NULL && !as11_helper.ParseFrameworkFile("dpp", dpp_filename)) {
+        std::cerr << "BMX AS-11 ERROR : UNABLE TO PARSE DPP FILE " << dpp_filename << std::endl;
+        return -1;
+    }
+    if (segmentation_filename != NULL && !as11_helper.ParseSegmentationFile(segmentation_filename, frame_rate)) {
+        std::cerr << "BMX AS-11 ERROR : UNABLE TO PARSE SEGMENTATION FILE " << segmentation_filename << std::endl;
+        return -1;
+    }
+
+    as11_helper.AddMetadata(writer->clip);
+    as11_helper.Complete();
+
+    return 0;
+}
+
 
 void bmx_add_track(void* bmx_writer, EssenceType essence_type)
 {
