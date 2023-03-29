@@ -2,9 +2,9 @@ diff --git a/libavformat/Makefile b/libavformat/Makefile
 index 0f340f74a0..15b79cfdeb 100644
 --- a/libavformat/Makefile
 +++ b/libavformat/Makefile
-@@ -134,7 +134,7 @@ OBJS-$(CONFIG_BINTEXT_DEMUXER)           += bintext.o sauce.o
- OBJS-$(CONFIG_BIT_DEMUXER)               += bit.o
+@@ -134,7 +134,7 @@ OBJS-$(CONFIG_BIT_DEMUXER)               += bit.o
  OBJS-$(CONFIG_BIT_MUXER)                 += bit.o
+ OBJS-$(CONFIG_BITPACKED_DEMUXER)         += rawvideodec.o
  OBJS-$(CONFIG_BMV_DEMUXER)               += bmv.o
 -OBJS-$(CONFIG_BMX_MUXER)                 += bmxenc.o
 +OBJS-$(CONFIG_BMX_MUXER)                 += bmxenc.o audiointerleave.o

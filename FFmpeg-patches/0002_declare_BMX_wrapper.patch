@@ -10,14 +10,6 @@ index 00b5d9795e..b25e5963ef 100755
    --enable-libcaca         enable textual display using libcaca [no]
    --enable-libcelt         enable CELT decoding via libcelt [no]
    --enable-libcdio         enable audio CD grabbing with libcdio [no]
-@@ -1388,6 +1389,7 @@ test_pkg_config(){
-     test_cmd $pkg_config --exists --print-errors $pkg_version || return
-     pkg_cflags=$($pkg_config --cflags $pkg_config_flags $pkg)
-     pkg_libs=$($pkg_config --libs $pkg_config_flags $pkg)
-+
-     check_func_headers "$headers" "$funcs" $pkg_cflags $pkg_libs "$@" &&
-         enable $name &&
-         set_sanitized "${name}_cflags"    $pkg_cflags &&
 @@ -1710,6 +1712,7 @@ EXTERNAL_LIBRARY_LIST="
      libass
      libbluray
@@ -51,8 +43,8 @@ index 00b5d9795e..b25e5963ef 100755
  # these are off by default, so fail if requested and not available
  enabled avisynth          && require_headers "avisynth/avisynth_c.h"
  enabled cuda_nvcc         && { check_nvcc cuda_nvcc || die "ERROR: failed checking for nvcc."; }
-@@ -6066,6 +6080,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883
- enabled libass            && require_pkg_config libass libass ass/ass.h ass_library_init
+@@ -6066,6 +6080,8 @@ enabled libiec61883       && require libiec61883 libiec61883/iec61883.h iec61883_cmp_connect -lraw1394 -lavc1394 -lrom1394 -liec61883
+ enabled libass            && require_pkg_config libass "libass >= 0.11.0" ass/ass.h ass_library_init
  enabled libbluray         && require_pkg_config libbluray libbluray libbluray/bluray.h bd_open
  enabled libbs2b           && require_pkg_config libbs2b libbs2b bs2b.h bs2b_open
 +enabled libcbmx           && { check_pkg_config libcbmx libcbmx "cbmx/version.h" get_bmx_library_name ||
@@ -64,9 +56,9 @@ diff --git a/libavformat/Makefile b/libavformat/Makefile
 index e4d997c4a0..ef05e92fdc 100644
 --- a/libavformat/Makefile
 +++ b/libavformat/Makefile
-@@ -124,6 +124,7 @@ OBJS-$(CONFIG_BINTEXT_DEMUXER)           += bintext.o sauce.o
- OBJS-$(CONFIG_BIT_DEMUXER)               += bit.o
+@@ -124,6 +124,7 @@ OBJS-$(CONFIG_BIT_DEMUXER)               += bit.o
  OBJS-$(CONFIG_BIT_MUXER)                 += bit.o
+ OBJS-$(CONFIG_BITPACKED_DEMUXER)         += rawvideodec.o
  OBJS-$(CONFIG_BMV_DEMUXER)               += bmv.o
 +OBJS-$(CONFIG_BMX_MUXER)                 += bmxenc.o
  OBJS-$(CONFIG_BOA_DEMUXER)               += boadec.o
@@ -76,14 +68,14 @@ diff --git a/libavformat/allformats.c b/libavformat/allformats.c
 index 498077e1de..3a1782fc91 100644
 --- a/libavformat/allformats.c
 +++ b/libavformat/allformats.c
-@@ -85,6 +85,7 @@ extern AVInputFormat  ff_bink_demuxer;
- extern AVInputFormat  ff_bit_demuxer;
- extern AVOutputFormat ff_bit_muxer;
- extern AVInputFormat  ff_bmv_demuxer;
-+extern AVOutputFormat ff_bmx_muxer;
- extern AVInputFormat  ff_bfstm_demuxer;
- extern AVInputFormat  ff_brstm_demuxer;
- extern AVInputFormat  ff_boa_demuxer;
+@@ -85,6 +85,7 @@ extern const AVInputFormat  ff_bit_demuxer;
+ extern const AVOutputFormat ff_bit_muxer;
+ extern const AVInputFormat  ff_bitpacked_demuxer;
+ extern const AVInputFormat  ff_bmv_demuxer;
++extern const AVOutputFormat ff_bmx_muxer;
+ extern const AVInputFormat  ff_bfstm_demuxer;
+ extern const AVInputFormat  ff_brstm_demuxer;
+ extern const AVInputFormat  ff_boa_demuxer;
 diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
 index 6e4c5f8fa3..89e1af42a0 100644
 --- a/libavformat/bmxenc.c
