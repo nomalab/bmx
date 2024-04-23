@@ -331,7 +331,7 @@ void AVCWriterHelper::CompleteProcess()
     if (!cdci_descriptor->haveVideoLineMap()) {
         // TODO: take signal standard into account
         if (cdci_descriptor->getFrameLayout() == MXF_FULL_FRAME) {
-            cdci_descriptor->appendVideoLineMap(1);
+            cdci_descriptor->appendVideoLineMap(42);
             cdci_descriptor->appendVideoLineMap(0);
         } else {
             int32_t height_factor = 1;

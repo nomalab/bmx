@@ -383,9 +383,17 @@ void AVCMXFDescriptorHelper::UpdateFileDescriptor(AVCEssenceParser *essence_pars
 
     // TODO: extract BlackRefLevel, WhiteRefLevel, ColorRange if possible
     // TODO: check levels and range don't component depth (and possibly full range flag?)
+    if (essence_parser->GetComponentDepth() == 10) {
+        cdci_descriptor->setBlackRefLevel(64);
+        cdci_descriptor->setWhiteReflevel(940);
+        cdci_descriptor->setColorRange(897);
+    }
 
     if (!cdci_descriptor->haveSignalStandard()) {
         switch (essence_parser->GetVideoFormat()) {
+            case 0:
+                cdci_descriptor->setSignalStandard(MXF_SIGNAL_STANDARD_NONE);
+                break;
             case 1:
             case 2:
                 cdci_descriptor->setSignalStandard(MXF_SIGNAL_STANDARD_ITU601);
