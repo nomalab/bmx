@@ -1,0 +1,40 @@
+diff --git a/libavformat/bmxenc.c b/libavformat/bmxenc.c
+index fba82d1485..5386792690 100644
+--- a/libavformat/bmxenc.c
++++ b/libavformat/bmxenc.c
+@@ -36,6 +36,7 @@ static int bmx_writer_init(AVFormatContext *s)
+     config.timecode = bmx->timecode;
+     config.loose_checks = bmx->loose_checks;
+     config.as11_core = bmx->as11_dm_file;
++    config.min_part = bmx->min_part;
+ 
+     bmx->internal_data = create_writer(s->url, &config);
+     bmx_set_timecode(bmx->internal_data, &config);
+@@ -302,6 +303,7 @@ static const AVOption options[] = {
+     { "avci50_1080i", "AVC Intra 50 1080i video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080I }, 0, UINT_MAX, E, "video_essence"},
+     { "avci50_1080p", "AVC Intra 50 1080p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_1080P }, 0, UINT_MAX, E, "video_essence"},
+     { "avci50_720p", "AVC Intra 50 720p video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVCI50_720P }, 0, UINT_MAX, E, "video_essence"},
++    { "avc_high_422_intra", "AVC High 422 Intra video essence", 0, AV_OPT_TYPE_CONST, {.i64 = AVC_HIGH_422_INTRA }, 0, UINT_MAX, E, "video_essence"},
+     { "d10_30", "D10 30Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_30 }, 0, UINT_MAX, E, "video_essence"},
+     { "d10_40", "D10 40Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_40 }, 0, UINT_MAX, E, "video_essence"},
+     { "d10_50", "D10 50Mbps video essence", 0, AV_OPT_TYPE_CONST, {.i64 = D10_50 }, 0, UINT_MAX, E, "video_essence"},
+@@ -311,6 +313,7 @@ static const AVOption options[] = {
+     { "bmx_single_pass", "Enable single pass writing", OFFSET(single_pass), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "bmx_smpte_st377m2004", "Set MXF version to SMPTE ST 377M-2004 (1.2)", OFFSET(smpte_st377m2004), AV_OPT_TYPE_FLAGS, { .i64 = 0 }, 0, UINT_MAX, E},
+     { "bmx_part", "Video essence partition interval in frames", OFFSET(partition_size_in_frames), AV_OPT_TYPE_INT, {.i64 = -1 }, -1, INT_MAX, E},
++    { "bmx_min_part", "Enable min partition (header and footer only)", OFFSET(min_part), AV_OPT_TYPE_FLAGS, {.i64 = 0 }, 0, UINT_MAX, E},
+     { NULL },
+ };
+ 
+diff --git a/libavformat/bmxenc.h b/libavformat/bmxenc.h
+index f93c484a1a..960aef6e45 100644
+--- a/libavformat/bmxenc.h
++++ b/libavformat/bmxenc.h
+@@ -28,6 +28,7 @@ typedef struct BMXContext {
+     const char* segmentation_file;
+     const char* as11_dm_file;
+     const char* dpp_dm_file;
++    int min_part;
+ } BMXContext;
+ 
+ typedef struct BMXStreamContext {

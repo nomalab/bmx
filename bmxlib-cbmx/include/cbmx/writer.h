@@ -44,6 +44,7 @@ struct MxfConfig
     const char* timecode;
     int loose_checks;
     const char* as11_core;
+    int min_part;
 } MxfConfig;
 
 const char* get_as10_shim_name(ShimName shim);
