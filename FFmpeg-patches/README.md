@@ -21,7 +21,7 @@ git apply /path/to/FFmpeg-patches/*.patch
 
 ## BMX
 
-Firstly, build bmx libraries `libMXF`, `libMXF++` and `bmx`. The instructions are [here](https://sourceforge.net/p/bmxlib/home/Home/).
+Firstly, build bmx libraries [libMXF](https://github.com/ebu/bmx/tree/main/deps/libMXF), [libMXF++](https://github.com/ebu/bmx/tree/main/deps/libMXFpp) and [bmx](https://github.com/ebu/bmx).
 
 Build `cbmx` library :
 
